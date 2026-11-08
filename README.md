@@ -489,3 +489,8 @@ You can open an issue or send a PR with suggestions. Code style: follow the layo
 - Docker volumes (models, indexes, users): they are regenerated on the server
 
 **License:** [Apache-2.0](LICENSE), see [NOTICE](NOTICE). Aruba and HPE are trademarks of their respective owners; this project is independent. The components used keep their own licenses (Open WebUI, Ollama, Docling, Qwen models).
+
+## Support
+
+- GitHub Sponsors: https://github.com/sponsors/emreyigit-tasdelen
+- Buy Me a Coffee: https://buymeacoffee.com/emreyigit.tasdelen

@@ -490,3 +490,8 @@ Değişiklik önerileri için issue açabilir veya PR gönderebilirsiniz. Kod st
 - Docker volume'leri (modeller, indeksler, kullanıcılar): sunucuda yeniden üretilir
 
 **Lisans:** [Apache-2.0](LICENSE), bkz. [NOTICE](NOTICE). Aruba ve HPE ilgili sahiplerinin ticari markalarıdır; proje bağımsızdır. Kullanılan bileşenler kendi lisanslarına tabidir (Open WebUI, Ollama, Docling, Qwen modelleri).
+
+## Destek
+
+- GitHub Sponsors: https://github.com/sponsors/emreyigit-tasdelen
+- Buy Me a Coffee: https://buymeacoffee.com/emreyigit.tasdelen
