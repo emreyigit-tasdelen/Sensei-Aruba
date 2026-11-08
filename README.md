@@ -31,7 +31,6 @@
 - 🏠 **Tamamen lokal:** modeller Ollama'da CPU üzerinde çalışır; dışarıya yalnızca Caddy'nin 80/443 portları açıktır.
 - 🔁 **Kendini günceller:** `sources/<cihaz>/` altına yeni `commands.jsonl` veya döküman koyunca 15 dakika içinde yalnız değişen dosyalar yeniden indekslenir (SHA-256).
 
-<!-- Ekran görüntüsü: Open WebUI'da bir cevap ve altındaki Doğrulama/Hakem satırları -->
 
 ---
 
@@ -281,7 +280,6 @@ Cevabın sonundaki dipnotun anlamı:
 
 **Yeni cihaz eklemek:** `sources/<cihaz-adı>/commands.jsonl` dosyasını koyun (klasör adı küçük harf ve tireli olsun, ör. `aruba-cx-6300`). Dökümanları `sources/<cihaz-adı>/docs/` altına koyun. Ayrıntı: [KULLANIM.md §15–§16](docs/KULLANIM.md#15-yeni-cihaz--yeni-marka-ekleme).
 
-<!-- Ekran görüntüsü: model menüsünde aruba-vmc / aruba-cx-6200m -->
 
 ---
 
