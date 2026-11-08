@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+[Unit]
+Description=Check /opt/aruba-bot/sources for new or changed devices every 15 minutes
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target

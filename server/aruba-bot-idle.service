@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+[Unit]
+Description=Release RAM to the host while the chatbot is idle
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/aruba-bot/idle.sh

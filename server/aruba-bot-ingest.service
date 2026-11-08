@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+[Unit]
+Description=Re-index changed device sources in rag-api
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/aruba-bot
+ExecStart=/usr/bin/docker compose exec -T rag-api python -c "import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/ingest', method='POST')).read().decode())"

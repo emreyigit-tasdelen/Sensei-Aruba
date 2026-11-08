@@ -1,0 +1,26 @@
+# secrets
+pass.txt
+*.pem
+*.key
+id_*
+.env
+caddy-root.crt
+
+# runtime / local
+*.log
+idle-count.txt
+__pycache__/
+*.pyc
+venv/
+.venv/
+Thumbs.db
+.DS_Store
+
+# vendor documents (copyrighted) and their conversions
+*.pdf
+server/sources/*/docs/
+
+# crawler output (vendor command text): generate it from your own device
+crawler/*/commands.jsonl
+crawler/*/aruba_cli_tree_*.md
+crawler/*/state_*.json

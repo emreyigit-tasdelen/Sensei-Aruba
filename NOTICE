@@ -1,0 +1,11 @@
+Sensei-Aruba
+Copyright 2026 Emre Yiğit Taşdelen
+
+Licensed under the Apache License, Version 2.0.
+
+Aruba, ArubaOS, AOS-CX and HPE are trademarks of Hewlett Packard Enterprise.
+This project is independent and is not affiliated with or endorsed by HPE.
+Command names and descriptions in crawler/*/commands.sample.jsonl are vendor
+text, included as a short excerpt for format illustration only.
+
+Third-party software (Ollama, Open WebUI, Docling, Caddy, models) keeps its own licences.

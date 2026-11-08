@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+# HTTPS with Caddy's internal (self-signed) CA; HTTP is redirected automatically.
+# No IP or hostname is hard-coded: certificates are issued on demand for whatever
+# name or address the client connects to (IP changes, localhost and aruba-bot all work).
+https:// {
+	tls internal {
+		on_demand
+	}
+	reverse_proxy open-webui:8080
+}

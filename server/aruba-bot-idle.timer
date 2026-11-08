@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+[Unit]
+Description=Check for idle chatbot every 5 minutes
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

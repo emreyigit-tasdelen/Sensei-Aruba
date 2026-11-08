@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Emre Yiğit Taşdelen
+# Sensei-Aruba stack: Ollama (models) + Open WebUI (chat, RAG, vision, web search) + Docling (document parsing)
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "3"      # chat/vision + judge + embedding
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_KEEP_ALIVE: "5m"            # unload models after 5 idle minutes (frees RAM)
+      OLLAMA_CONTEXT_LENGTH: "8192"
+    cpus: "10"          # leave 2 vCPU for sshd / web UI
+    mem_limit: 10g      # VM has 14 GB; qwen3:8b + qwen3:1.7b fit
+    volumes: [ "ollama:/root/.ollama" ]
+    logging: *logging
+
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    restart: unless-stopped
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+    cpus: "4"
+    logging: *logging
+
+  rag-api:
+    build: ./rag-api
+    restart: unless-stopped
+    depends_on: [ ollama ]
+    cpus: "4"
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      CHAT_MODEL: qwen3:8b
+      VISION_MODEL: qwen2.5vl:7b
+      JUDGE_MODEL: qwen3:1.7b
+    volumes:
+      - ./sources:/sources:ro          # one folder per device: sources/<device>/commands.jsonl
+      - ragdata:/data
+    logging: *logging
+
+  open-webui:
+    build: ./open-webui   # stock image minus the " (Open WebUI)" name suffix, see open-webui/Dockerfile
+    restart: unless-stopped
+    depends_on: [ ollama, docling, rag-api ]
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      ENABLE_PERSISTENT_CONFIG: "false"   # settings below always come from this file
+      WEBUI_NAME: Sensei-Aruba
+      DEFAULT_MODELS: aruba-vmc
+      # CLI command index (rag-api): one model per device (aruba-vmc, aruba-cx-6200m), never mixed
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: http://rag-api:8000/v1
+      OPENAI_API_KEY: internal
+      # Background LLM tasks are too slow on CPU
+      ENABLE_TITLE_GENERATION: "false"
+      ENABLE_TAGS_GENERATION: "false"
+      ENABLE_AUTOCOMPLETE_GENERATION: "false"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      # RAG
+      RAG_EMBEDDING_ENGINE: ollama
+      RAG_EMBEDDING_MODEL: bge-m3
+      ENABLE_RAG_HYBRID_SEARCH: "true"
+      RAG_TOP_K: "8"
+      CHUNK_SIZE: "1200"
+      CHUNK_OVERLAP: "200"
+      CONTENT_EXTRACTION_ENGINE: docling
+      DOCLING_SERVER_URL: http://docling:5001
+      # Web search (used only when enabled per chat)
+      ENABLE_WEB_SEARCH: "true"
+      WEB_SEARCH_ENGINE: duckduckgo
+    volumes: [ "webui:/app/backend/data" ]
+    logging: *logging
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [ open-webui ]
+    ports: [ "80:80", "443:443" ]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    logging: *logging
+
+volumes:
+  caddy:
+  ragdata:
+  ollama:
+  webui:
