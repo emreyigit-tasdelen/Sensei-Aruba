@@ -32,8 +32,6 @@
 - 🔁 **Kendini günceller:** `sources/<cihaz>/` altına yeni `commands.jsonl` veya döküman koyunca 15 dakika içinde yalnız değişen dosyalar yeniden indekslenir (SHA-256).
 
 <!-- Ekran görüntüsü: Open WebUI'da bir cevap ve altındaki Doğrulama/Hakem satırları -->
-<!-- ![Sohbet ekranı](docs/assets/screenshot-chat.png) -->
-> 📸 _Ekran görüntüsü eklenecek: `docs/assets/screenshot-chat.png` (cevap + Doğrulama/Hakem satırları)._
 
 ---
 
@@ -148,7 +146,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     DEV["Canlı cihaz<br/>(VMC / 6200M)"] -->|"aruba_crawl.py<br/>SSH ile ? taraması"| TREE["aruba_cli_tree_*.md"]
-    TREE -.->|"satır başına JSON<br/>(dönüştürücü repoda yok)"| JSONL["sources/‹cihaz›/commands.jsonl"]
+    TREE -.->|"satır başına JSON<br/>tree_to_jsonl.py"| JSONL["sources/‹cihaz›/commands.jsonl"]
     PDF["Üretici dökümanları<br/>PDF / DOCX / görsel"] -->|"Docling (OCR)<br/>büyük PDF: pdf_to_md.py"| MD["sources/‹cihaz›/docs/"]
     JSONL --> P1["Aşama 1: FTS5<br/>cr, pipe ve yönlendirme satırları<br/>ile tekrarlar elenir"]
     P1 --> P2["Aşama 2: vektörler<br/>MiniLM-L12, cihaz cihaz"]
@@ -211,7 +209,8 @@ sudo mkdir -p /opt/aruba-bot && sudo chown $USER /opt/aruba-bot
 cp -r server/. /opt/aruba-bot/
 
 # 2) Komut dizinini kaynak olarak koy (klasör adı = model adı).
-#    Hızlı deneme için repodaki örnek yeter; tam dizini kendi cihazınızdan üretin (crawler/README.md).
+#    Hızlı deneme için repodaki örnek yeter; tam dizini kendi cihazınızdan üretin
+#    (crawler/README.md: tarama + tree_to_jsonl.py).
 for d in aruba-vmc aruba-cx-6200m; do
   mkdir -p /opt/aruba-bot/sources/$d && cp crawler/$d/commands.sample.jsonl /opt/aruba-bot/sources/$d/commands.jsonl
 done
@@ -283,7 +282,6 @@ Cevabın sonundaki dipnotun anlamı:
 **Yeni cihaz eklemek:** `sources/<cihaz-adı>/commands.jsonl` dosyasını koyun (klasör adı küçük harf ve tireli olsun, ör. `aruba-cx-6300`). Dökümanları `sources/<cihaz-adı>/docs/` altına koyun. Ayrıntı: [KULLANIM.md §15–§16](docs/KULLANIM.md#15-yeni-cihaz--yeni-marka-ekleme).
 
 <!-- Ekran görüntüsü: model menüsünde aruba-vmc / aruba-cx-6200m -->
-> 📸 _Ekran görüntüsü eklenecek: `docs/assets/screenshot-models.png` (cihaz = model seçimi)._
 
 ---
 
@@ -413,6 +411,7 @@ Sensei-Aruba/
 │   ├── aruba-bot*.service / .timer  # systemd: açılış, yeniden indeksleme, boşta önbellek bırakma
 │   └── *.sh                         # ask, status, bench, wake, idle, netdiag, docling-api
 ├── crawler/
+│   ├── tree_to_jsonl.py             # Ağaç .md dosyalarını rag-api'nin okuduğu commands.jsonl'a çevirir
 │   ├── aruba-vmc/                   # AOS 8 Mobility Controller taraması
 │   │   ├── aruba_crawl.py           # SSH + ? ile DFS tarayıcı, kaldığı yerden devam eder
 │   │   ├── run_crawl.ps1            # Şifreyi bir kez sorar, çökerse 30 sn sonra yeniden dener
@@ -453,7 +452,7 @@ sh ask.sh aruba-vmc "show ap database ne gösterir?"  # uçtan uca duman testi
 - Dışarıya yalnız Caddy (80/443) yayınlanır. Ollama 11434, rag-api 8000, Docling 5001 ve Open WebUI 8080 yalnız Docker iç ağındadır.
 - Crawler cihaz şifresini her çalıştırmada bir kez sorar, diske yazmaz. Parola ve anahtar dosyaları `.gitignore`'dadır.
 - Web araması açıldığında sorgular DuckDuckGo'ya gider; hassas bilgiyle web araması açmayın.
-- Open WebUI'da yeni kayıtları "pending" yapın, ham modelleri kullanıcılardan gizleyin. Tam kontrol listesi: [KULLANIM.md §21](docs/KULLANIM.md#21-güvenlik-kontrol-listesi).
+- Open WebUI'da yeni kayıtları "pending" yapın, ham modelleri kullanıcılardan gizleyin. Ayrıntılar: [KULLANIM.md §21](docs/KULLANIM.md#21-güvenlik-sertleştirme).
 
 **Bilinen sınırlar**
 - CPU'da yavaş: `qwen3:8b` ile ~3 token/sn. Bir cevap genelde 1–3 dakika sürer. Model yükleme ve hakem eklenince daha uzun sürebilir (yukarıdaki örnek 9,5 dk).

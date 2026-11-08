@@ -3,8 +3,6 @@
 
 | Problem | Neden (kök neden) | Çözüm | Tekrarını önleme |
 |---|---|---|---|
-| Anahtar ekli ama SSH reddediyor | PC'deki ana anahtar passphrase'li; otomasyon passphrase giremez | Sadece bu sunucu için passphrase'siz ayrı anahtar | Otomasyona ayrı anahtar |
-| Yeni anahtar da çalışmıyor | PowerShell'de `ssh-keygen -N '""'` boş değil `""` passphrase üretir | `ssh-keygen -p -P '""' -N ''` | PowerShell'de `-N ''` yaz |
 | Model çalışırken SSH kopuyor | Ollama tüm CPU'yu alıyor, VM dizüstüyle CPU paylaşıyor | Ollama `cpus: 10`, docling/rag-api `cpus: 4` | Her servise CPU sınırı |
 | `scp` → Permission denied | `sources` klasörünü Docker root sahipliğinde oluşturdu | `sudo chown -R $USER:$USER sources` | Klasörleri compose'dan önce aç |
 | İndeks hazır değilken "bulunamadı" + Hakem RED | Boş bağlamla cevap üretildi | İki aşamalı indeksleme (önce anahtar kelime), boş bağlamda hakem çalışmaz | — |

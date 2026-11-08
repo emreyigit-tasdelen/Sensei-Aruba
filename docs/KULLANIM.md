@@ -27,8 +27,8 @@ Bu doküman, Aruba VMC ve Aruba CX 6200M CLI komut dizinleri üzerinde çalışa
 17. [CPU, RAM ve performans ayarları](#17-cpu-ram-ve-performans-ayarları)
 18. [Bakım komutları](#18-bakım-komutları)
 19. [Sorun giderme (kurulumda yaşanan gerçek sorunlar)](#19-sorun-giderme-kurulumda-yaşanan-gerçek-sorunlar)
-20. [PC ve VM üzerinde yapılan tüm değişiklikler](#20-pc-ve-vm-üzerinde-yapılan-tüm-değişiklikler)
-21. [Güvenlik kontrol listesi](#21-güvenlik-kontrol-listesi)
+20. [Kurulumda yapılan değişikliklerin özeti](#20-kurulumda-yapılan-değişikliklerin-özeti)
+21. [Güvenlik sertleştirme](#21-güvenlik-sertleştirme)
 22. [Sınırlar ve sonraki adımlar](#22-sınırlar-ve-sonraki-adımlar)
 23. [Bellek ve uyku yönetimi](#23-bellek-ve-uyku-yönetimi)
 
@@ -137,17 +137,14 @@ Servisler birbirine Docker'ın iç ağı üzerinden servis adıyla erişir (`htt
 
 Sunucuya parolasız, anahtarla bağlanmak için PC'de yapılanlar. Tüm komutlar **PowerShell 7**'de çalıştırılır.
 
-### 5.1 Özel bir SSH anahtarı oluşturma
-Otomasyon için **passphrase'siz**, sadece bu iş için kullanılan ayrı bir anahtar oluşturulur:
+### 5.1 Ayrı bir SSH anahtarı oluşturma
+Bu sunucu için ayrı bir anahtar kullanın ve **passphrase ile koruyun**:
 
 ```powershell
-ssh-keygen -t ed25519 -N '' -C claude-aruba -f "$HOME\.ssh\id_ed25519_claude_aruba"
+ssh-keygen -t ed25519 -C aruba-bot -f "$HOME\.ssh\id_ed25519_aruba_bot"
 ```
 
-> **Dikkat (yaşanan hata):** PowerShell'de `-N '""'` yazmak boş passphrase değil, **iki tırnak karakterinden oluşan bir passphrase** oluşturur. Bu yüzden anahtar kullanılamadı. Doğrusu `-N ''`. Yanlış oluşturulmuş anahtarı düzeltmek için:
-> ```powershell
-> ssh-keygen -p -P '""' -N '' -f "$HOME\.ssh\id_ed25519_claude_aruba"
-> ```
+Passphrase'i her bağlantıda yazmamak için `ssh-agent` kullanın: `Start-Service ssh-agent; ssh-add "$HOME\.ssh\id_ed25519_aruba_bot"`.
 
 ### 5.2 SSH kısayolu (`aruba-bot`)
 `C:\Users\<kullanıcı>\.ssh\config` dosyasının sonuna eklenir:
@@ -156,21 +153,21 @@ ssh-keygen -t ed25519 -N '' -C claude-aruba -f "$HOME\.ssh\id_ed25519_claude_aru
 Host aruba-bot
     HostName <VM-IP>
     User <kullanici>
-    IdentityFile ~/.ssh/id_ed25519_claude_aruba
+    IdentityFile ~/.ssh/id_ed25519_aruba_bot
     IdentitiesOnly yes
 ```
 
 Bundan sonra `ssh aruba-bot` ve `scp dosya aruba-bot:/hedef/` komutları çalışır. `IdentitiesOnly yes`, SSH'ın başka anahtarları denemesini engeller.
 
 ### 5.3 Anahtarı sunucuya ekleme (bir kerelik, parolayla)
-Anahtarın sunucudaki `~/.ssh/authorized_keys` dosyasına eklenmesi gerekir. Bu adım parola ister ve **kullanıcının kendisi** çalıştırır. Proje klasöründe `add-key.ps1` bu işi yapar:
+Anahtarın sunucudaki `~/.ssh/authorized_keys` dosyasına eklenmesi gerekir. Bu adım sunucu parolasını ister:
 
 ```powershell
-$k = Get-Content "$HOME\.ssh\id_ed25519_claude_aruba.pub"
+$k = Get-Content "$HOME\.ssh\id_ed25519_aruba_bot.pub"
 ssh <kullanici>@<VM-IP> "echo '$k' >> ~/.ssh/authorized_keys && echo KEY_OK"
 ```
 
-Çalıştırma: `& .\add-key.ps1` → parolayı girin → `KEY_OK` görmelisiniz.
+Parolayı girin; `KEY_OK` görmelisiniz.
 
 > **Neden `type dosya.pub | ssh ...` kullanılmadı:** PowerShell boru hattı metni farklı kodlamayla ve Windows satır sonuyla (CRLF) aktarabilir; ayrıca anahtar açıklamasındaki Türkçe karakterler (ğ, ş) sorun çıkarabilir. Değişkene okuyup tek satır olarak yazmak güvenlidir.
 
@@ -184,15 +181,8 @@ ssh -o BatchMode=yes aruba-bot "echo LOGIN_OK"
 
 ## 6. Sunucu hazırlığı: disk, Docker, sudo
 
-### 6.1 Geçici parolasız sudo (otomasyon için)
-Kurulum ve bakım komutlarının parola sormadan çalışması için. **Kullanıcının kendisi** bir kere çalıştırır:
-
-```bash
-echo '<kullanici> ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/90-bakim-tmp
-sudo chmod 440 /etc/sudoers.d/90-bakim-tmp
-```
-
-Kaldırmak için: `sudo rm /etc/sudoers.d/90-bakim-tmp`. Şu an bakım için **bilerek bırakılmıştır** (bkz. [Güvenlik](#21-güvenlik-kontrol-listesi)).
+### 6.1 Sudo
+Kurulum ve bakım komutları `sudo` ile çalışır. Parolasız sudo (`NOPASSWD`) tanımlamayın, `sudo` parola sorsun.
 
 ### 6.2 Diski büyütme (LVM)
 ```bash
@@ -445,7 +435,7 @@ https:// {
 	reverse_proxy open-webui:8080
 }
 ```
-Caddy, diğer servislerle aynı Compose ağındadır ve Open WebUI'a servis adıyla (`open-webui:8080`) proxy yapar; dışarıya yalnız Caddy'nin 80/443 portları yayınlanır. `127.0.0.1:8080` **kullanmayın**: Caddy kendi konteynerinde çalıştığı için bu adres Caddy'nin kendisidir ve 502 verir (bkz. Sorunlar ve Çözümler).
+Caddy, diğer servislerle aynı Compose ağındadır ve Open WebUI'a servis adıyla (`open-webui:8080`) proxy yapar; dışarıya yalnız Caddy'nin 80/443 portları yayınlanır. `127.0.0.1:8080` **kullanmayın**: Caddy kendi konteynerinde çalıştığı için bu adres Caddy'nin kendisidir ve 502 verir (bkz. [Sorunlar ve Çözümler](sorunlar-ve-cozumler.md)).
 - `tls internal`: Alan adı ve internetten doğrulama olmadığı için Caddy **kendi yerel sertifika otoritesiyle** sertifika üretir. Trafik şifrelidir; tarayıcı ilk girişte "güvenli değil" uyarısı verir → "Gelişmiş → Devam et".
 - HTTP (80) istekleri otomatik olarak HTTPS'e yönlendirilir (308).
 - `on_demand`: Sertifika, istemcinin bağlandığı ad veya IP için ilk istekte üretilir; Caddyfile'da sabit IP yoktur.
@@ -749,7 +739,6 @@ scp ArubaOS-8.x-CLI-Reference-Guide.md aruba-bot:/opt/aruba-bot/sources/aruba-vm
 | aruba-vmc | Wi-Fi design and deployment … .pdf | Docling |
 | aruba-cx-6200m | — (6200M'e özel PDF yok; CX 6000 datasheet'i farklı seri olduğu için eklenmedi) | |
 
-Kaynak klasör: `<PDF klasörü>`. Cisco ISE kitabı, Central On-Prem ve Morpheus VME kılavuzları cihazlarla ilgisiz olduğu için eklenmedi.
 
 ### 16.2 Open WebUI Knowledge (alternatif, genel dökümanlar)
 Cihaza bağlı olmayan genel dökümanlar için Open WebUI'ın kendi RAG'ı da kullanılabilir: **Workspace → Knowledge → +** → dosya yükle → sohbette `#` ile koleksiyonu seçip ham `qwen3:8b` modeliyle sor. Bu yol cihaz modelleriyle (doğrulama/hakem) birlikte çalışmaz.
@@ -820,8 +809,6 @@ Hepsi sunucuda, `/opt/aruba-bot` içinde (PC'den başına `ssh aruba-bot "..."` 
 
 | Belirti | Neden | Çözüm |
 |---|---|---|
-| `Permission denied (publickey,password)`, anahtar ekli olduğu halde | PC'deki asıl anahtar (`id_ed25519`) **passphrase'li**; otomasyon passphrase giremez | Ayrı, passphrase'siz anahtar (Bölüm 5.1) |
-| Yeni anahtar da reddediliyor; `ssh -v` çıktısında "Server accepts key" var ama giriş yok | `ssh-keygen -N '""'` PowerShell'de passphrase'i `""` yaptı | `ssh-keygen -p -P '""' -N '' -f ...` |
 | Anahtar sunucuya eklenince bozuk | PowerShell boru hattı kodlama/CRLF | Bölüm 5.3'teki değişken yöntemi |
 | `ssh: connect ... Connection timed out` model çalışırken | Model tüm CPU'yu alıyor (VM, dizüstüyle CPU paylaşıyor) | Ollama `cpus: 10`; uzun komutları sunucuda `nohup ... &` ile çalıştırıp sonucu dosyadan okuyun |
 | `scp: dest open ... No such file or directory / Failure` | `sources` klasörünü Docker root sahipliğinde oluşturdu | `sudo chown -R <kullanici>:<kullanici> /opt/aruba-bot/sources` |
@@ -843,48 +830,58 @@ uptime; free -h; df -h /
 
 ---
 
-## 20. PC ve VM üzerinde yapılan tüm değişiklikler
+## 20. Kurulumda yapılan değişikliklerin özeti
 
-### Windows PC (`<repo>`)
+### Windows PC
 | Değişiklik | Yer |
 |---|---|
-| Yeni SSH anahtarı (passphrase'siz, sadece bu sunucu için) | `%USERPROFILE%\.ssh\id_ed25519_claude_aruba` (+ `.pub`) |
-| SSH kısayolu `aruba-bot` | `%USERPROFILE%\.ssh\config` sonuna eklendi |
+| SSH anahtarı (yalnız bu sunucu için) | `%USERPROFILE%\.ssh\id_ed25519_aruba_bot` (+ `.pub`) |
+| SSH kısayolu `aruba-bot` | `%USERPROFILE%\.ssh\config` sonuna eklenir |
 | Sunucu host anahtarı | `%USERPROFILE%\.ssh\known_hosts` |
 | `server\` | compose.yaml, Caddyfile, systemd dosyaları, script'ler, rag-api\ (app.py, Dockerfile), tools\pdf_to_md.py |
-| `crawler\aruba-vmc\`, `crawler\aruba-cx-6200m\` | CLI tarayıcı (`aruba_crawl.py`), çıktılar (`commands.jsonl`, `.md` ağaçları) |
-| `docs\KULLANIM.md` | Bu doküman |
-| `vm-control\` | VM uyut/uyandır script'leri (Bölüm 23) |
-| Masaüstü kısayolları **"AI Başlat"**, **"AI Uyut"** | `vm-control` script'lerini çalıştırır |
-| VMware `.vmx` | `memsize` 24836 → 14336; yedek: `Ubuntu 64-bit.vmx.bak-24g` |
+| `crawler\` | CLI tarayıcı (`aruba_crawl.py`); çıktılar (`commands.jsonl`) cihazdan üretilir |
+| `vm-control\` | VM uyut/uyandır script'leri (Bölüm 23) ve masaüstü kısayolları **"AI Başlat"**, **"AI Uyut"** |
+| VMware `.vmx` | `memsize` 24836 → 14336; yedek: `*.vmx.bak-24g` |
 
-PC'de bunların dışında sistem ayarı, kurulum veya model eğitimi yapılmadı. Mevcut `id_ed25519` anahtarınıza ve `<ssh-tanımı>` SSH tanımınıza dokunulmadı.
+PC'de bunların dışında sistem ayarı değiştirilmez.
 
-### VM (<VM-IP>)
+### Sunucu (VM)
 | Değişiklik | Ayrıntı |
 |---|---|
-| SSH | `~/.ssh/authorized_keys`'e iki anahtar (`claude-aruba` açıklamalı); `~` izinleri `go-w`, `~/.ssh` 700, `authorized_keys` 600 |
-| Sudo | `/etc/sudoers.d/90-bakim-tmp` → `<kullanici> ALL=(ALL) NOPASSWD:ALL` (geçici, bakım için bırakıldı) |
+| SSH | Anahtar `~/.ssh/authorized_keys`'e eklenir; `~` izinleri `go-w`, `~/.ssh` 700, `authorized_keys` 600 |
 | Disk | LVM kök bölümü 73 GB → 146 GB |
-| Paketler | `docker.io`, `docker-compose-v2`; `<kullanici>` → `docker` grubu |
-| Uygulama | `/opt/aruba-bot` (sahibi `<kullanici>`) |
-| systemd | `aruba-bot.service` (enabled), `aruba-bot-ingest.service` + `.timer` (enabled), `aruba-bot-idle.service` + `.timer` (enabled) |
+| Paketler | `docker.io`, `docker-compose-v2`; kullanıcı `docker` grubuna eklenir |
+| Uygulama | `/opt/aruba-bot` |
+| systemd | `aruba-bot.service`, `aruba-bot-ingest.service` + `.timer`, `aruba-bot-idle.service` + `.timer` (hepsi enabled) |
 | Script'ler | `idle.sh`, `wake.sh`, `netdiag.sh` (ağ teşhisi), `docling-api.sh` (Docling API listesi) |
-| ufw | Ek olarak `ufw route allow` 80/443 (teşhis sırasında eklendi; zararsız) |
 | Firewall | ufw aktif: 22, 80, 443 |
 | Docker volume'leri | `aruba-bot_ollama`, `aruba-bot_webui`, `aruba-bot_ragdata`, `aruba-bot_caddy` |
 
 ---
 
-## 21. Güvenlik kontrol listesi
+## 21. Güvenlik sertleştirme
 
-- [ ] **Sunucu parolasını değiştirin** (`passwd`). Kurulum sırasında sohbette açık yazıldı.
-- [ ] Bakım bitince geçici sudo'yu kaldırın: `sudo rm /etc/sudoers.d/90-bakim-tmp`.
-- [ ] Gerekirse SSH parola girişini kapatın (yalnızca anahtar): `/etc/ssh/sshd_config.d/` altında `PasswordAuthentication no` → `sudo systemctl restart ssh`. Önce anahtarla girişin çalıştığından emin olun.
-- [x] Düz metin parola dosyası (`pass.txt`) kaldırıldı; crawler şifreyi her çalıştırmada bir kez sorar, diske yazmaz.
-- [ ] `id_ed25519_claude_aruba` passphrase'sizdir: PC'nizi ele geçiren sunucuya da girebilir. Proje bitince `authorized_keys`'ten `claude-aruba` satırlarını silin veya anahtarı passphrase'li yapın.
-- [ ] Open WebUI'da yeni kayıtları "pending" yapın, ham modelleri gizleyin.
-- [ ] Web aramasının sorguları DuckDuckGo'ya gönderdiğini unutmayın; hassas bilgiyle web araması açmayın.
+Dışarıya yalnız Caddy (80/443) açıktır. Canlı kullanımda şunları uygulayın.
+
+**Erişim**
+- Yönetici hesabı için güçlü ve benzersiz bir parola kullanın, parola yöneticisinde saklayın. Parolayı doküman, repo, sohbet veya betik içinde düz metin tutmayın.
+- SSH'ta anahtar kullanın ve anahtarı passphrase ile koruyun. Anahtarla girişin çalıştığını doğruladıktan sonra parola girişini kapatın: `/etc/ssh/sshd_config.d/` altında `PasswordAuthentication no`, ardından `sudo systemctl restart ssh`.
+- Parolasız sudo (`NOPASSWD`) tanımlamayın.
+- Kullanılmayan anahtarları `~/.ssh/authorized_keys` dosyasından silin.
+
+**Ağ**
+- ufw yalnız 22, 80 ve 443'e izin versin; SSH'ı yönetim ağıyla sınırlayın (`sudo ufw allow from <yönetim-ağı> to any port 22`).
+- compose'da Caddy dışındaki servislere `ports:` eklemeyin (Bölüm 10).
+- Kendi imzalı sertifika yerine kuruma ait sertifika kullanılabilir (Bölüm 9).
+
+**Uygulama**
+- Open WebUI'da ilk hesabı (admin) kendiniz oluşturun, yeni kayıtları "pending" yapın, ham modelleri kullanıcılardan gizleyin (Bölüm 13).
+- Web araması açıkken sorgular DuckDuckGo'ya gider; hassas bilgi içeren sorularda kullanmayın. Tamamen kapatmak için compose'da `ENABLE_WEB_SEARCH: "false"`.
+- Crawler cihaz parolasını her çalıştırmada bir kez sorar ve diske yazmaz. Parola ve anahtar dosyaları `.gitignore`'dadır.
+
+**Bakım**
+- İşletim sistemi: `sudo apt-get update && sudo apt-get upgrade` (otomatik güvenlik güncellemesi için `unattended-upgrades`). İmajlar: `sudo docker compose pull && sudo docker compose up -d`.
+- Yedek: Bölüm 18.
 
 ---
 
@@ -899,18 +896,17 @@ PC'de bunların dışında sistem ayarı, kurulum veya model eğitimi yapılmad�
 
 **Önerilen sonraki adımlar**
 1. GPU'lu sunucu (16 GB+ VRAM) → `qwen3:14b`, 10× hız. Mimari aynen taşınır.
-2. ~~Cihaz bazlı PDF/döküman araması~~ (tamamlandı, Bölüm 16.1).
-3. Diğer markalar için crawler'lar.
-4. 30–50 soruluk test seti ile düzenli kalite ölçümü.
-5. Onaylanmış doğru cevapları "onaylı Q&A" olarak dizine geri eklemek.
-6. Cevap üslubu veya komut formatı sorun çıkarırsa, en son seçenek olarak küçük bir LoRA fine-tune.
+2. Diğer markalar için crawler'lar.
+3. 30–50 soruluk test seti ile düzenli kalite ölçümü.
+4. Onaylanmış doğru cevapları "onaylı Q&A" olarak dizine geri eklemek.
+5. Cevap üslubu veya komut formatı sorun çıkarırsa, en son seçenek olarak küçük bir LoRA fine-tune.
 
 ---
 
 ## 23. Bellek ve uyku yönetimi
 
 ### 23.1 Sorun
-VM, dizüstü bilgisayarın üzerinde VMware Workstation ile çalışır. VMware, VM'in **bir kez kullandığı belleği** (VM içinde boşalsa bile) Windows'a geri vermez. İlk kurulumda VM'e 24 GB ayrılmıştı; yanında 8 GB'lık AlmaLinux (Radius) VM'i ile birlikte Windows'ta boş RAM **1,1 GB**'a düştü. VM içinde ise uygulamalar yalnızca ~3,5 GB kullanıyordu; geri kalanı model dosyalarının Linux dosya önbelleğiydi.
+VM, dizüstü bilgisayarın üzerinde VMware Workstation ile çalışır. VMware, VM'in **bir kez kullandığı belleği** (VM içinde boşalsa bile) Windows'a geri vermez. İlk kurulumda VM'e 24 GB ayrılmıştı; yanında çalışan başka bir VM ile birlikte Windows'ta boş RAM **1,1 GB**'a düştü. VM içinde ise uygulamalar yalnızca ~3,5 GB kullanıyordu; geri kalanı model dosyalarının Linux dosya önbelleğiydi.
 
 ### 23.2 Dört katmanlı çözüm
 
@@ -983,4 +979,3 @@ Get-Content <repo>\vm-control\ai-vm.log -Tail 20
 - **Uyku sırasında** başka bilgisayarlardan arayüz açılmaz. Ağ isteğiyle otomatik uyanma mümkün değildir; uyandırma yalnızca bu PC'den yapılır.
 - **IP değişirse:** Betikler IP'yi VMware'den alır, Caddy sabit IP kullanmaz. Elle `ssh aruba-bot` kullanıyorsanız `~/.ssh/config` içindeki `HostName` değerini güncelleyin.
 - **Önemli:** Bu PC kapalıyken veya uykudayken VM de çalışmaz.
-- AlmaLinux (Radius) VM'ine bu mekanizma **dokunmaz**.

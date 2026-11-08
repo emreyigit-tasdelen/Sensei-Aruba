@@ -267,4 +267,4 @@ Kimlik bilgileri `ARUBA_USER` / `ARUBA_PASS` / `ARUBA_ENABLE` ortam değişkenle
 
 **Permütasyon budaması:** Filtre seçenekleri (`show ap database ...` gibi) her sırayla art arda yazılabildiği için ağaç patlıyordu. Aynı son kelime ve aynı alt seçenek kümesi daha önce görüldüyse o dala inilmez. Ayrıntı: [Sorunlar ve Çözümler](sorunlar-ve-cozumler.md#crawler-cli-ağacı-tarama-dersleri).
 
-`commands.jsonl` dosyaları bu `.md` ağaçlarından satır başına bir JSON olacak şekilde üretilmiştir. Dönüştürme adımı bu repoda bir script olarak bulunmaz.
+`commands.jsonl` dosyaları bu `.md` ağaçlarından satır başına bir JSON olacak şekilde üretilmiştir. Dönüştürme [`crawler/tree_to_jsonl.py`](../crawler/tree_to_jsonl.py) ile yapılır.
