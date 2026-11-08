@@ -1,5 +1,7 @@
 # Sensei-Aruba — Kurulum ve Kullanım Kılavuzu
 
+[English](../USAGE.md) · [Türkçe](KULLANIM.md)
+
 Bu doküman, Aruba VMC ve Aruba CX 6200M CLI komut dizinleri üzerinde çalışan, tamamen lokal (API/token kullanmayan) chatbot sisteminin **sıfırdan kurulumunu**, **mimarisini**, **her ayarın nedenini**, **günlük kullanımını** ve **bakımını** anlatır. Hiç bilmeyen biri baştan sona uygulayarak aynı sistemi kurabilir.
 
 > Sunucu parolası bu dokümanda **bilerek yer almaz**. Parolalar düz metin dosyalarda veya dokümanlarda tutulmamalıdır.

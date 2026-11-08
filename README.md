@@ -2,160 +2,163 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
-  <img alt="Sensei-Aruba: komutu uydurmayan, tamamen lokal Aruba CLI asistanı" src="docs/assets/banner-light.svg" width="100%">
+  <img alt="Sensei-Aruba: a fully local Aruba CLI assistant that never invents commands" src="docs/assets/banner-light.svg" width="100%">
 </picture>
 
 <br/>
 
-**Ağ cihazlarının CLI komutlarını, yalnızca cihazdan taranmış gerçek komut dizinine ve üretici dökümanlarına dayanarak Türkçe anlatan, API/token kullanmadan kendi sunucunuzda çalışan asistan.**
+**An assistant that explains network-device CLI commands using only the real command index crawled from the device and the vendor documentation. It runs on your own server with no API and no tokens.**
+
+[English](README.md) · [Türkçe](README.tr.md)
 
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![Docker Compose](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)
 ![Ollama](https://img.shields.io/badge/LLM-Ollama%20%C2%B7%20Qwen3-555?logo=ollama&logoColor=white)
 ![Open WebUI](https://img.shields.io/badge/UI-Open%20WebUI-555)
-![Ubuntu Server](https://img.shields.io/badge/sunucu-Ubuntu%2026.04-E95420?logo=ubuntu&logoColor=white)
-![Lokal](https://img.shields.io/badge/API%20%2F%20token-yok%20(100%25%20lokal)-2ea44f)
+![Ubuntu Server](https://img.shields.io/badge/server-Ubuntu%2026.04-E95420?logo=ubuntu&logoColor=white)
+![Local](https://img.shields.io/badge/API%20%2F%20tokens-none%20(100%25%20local)-2ea44f)
 
-[Neden?](#-problem-ve-çözüm) · [Mimari](#-mimari) · [Hızlı başlangıç](#-hızlı-başlangıç) · [Kullanım](#-kullanım) · [API](#-api-referansı) · [Yapılandırma](#-yapılandırma) · [Kılavuz](docs/KULLANIM.md)
+[Why?](#-problem-and-solution) · [Architecture](#-architecture) · [Quick start](#-quick-start) · [Usage](#-usage) · [API](#-api-reference) · [Configuration](#-configuration) · [Guide](docs/USAGE.md)
 
 </div>
 
 ---
 
-## ✨ Bir bakışta
+## ✨ At a glance
 
-- 🔎 **Hibrit arama:** 160 bin komut (Aruba VMC 57.741 + CX 6200M 102.032, filtre sonrası) ve 7.333 döküman parçası üzerinde SQLite FTS5 (BM25) + çok dilli vektör araması, Reciprocal Rank Fusion ile birleştirilir.
-- ✅ **Uydurmaya karşı iki katman:** cevaptaki her `komut` cihazın gerçek komut ağacında aranır; ayrıca küçük bir hakem model cevabın bağlamla desteklenip desteklenmediğine `ONAY` / `RED` verir.
-- 🧱 **Cihazlar asla karışmaz:** her cihaz Open WebUI'da ayrı bir model (`aruba-vmc`, `aruba-cx-6200m`); arama yalnız o cihazın dizininde ve dökümanlarında yapılır.
-- 🖼️ **Görsel okuma:** mesajda görsel varsa (CLI çıktısı, hata ekranı) istek otomatik olarak `qwen2.5vl:7b` modeline gider.
-- 🏠 **Tamamen lokal:** modeller Ollama'da CPU üzerinde çalışır; dışarıya yalnızca Caddy'nin 80/443 portları açıktır.
-- 🔁 **Kendini günceller:** `sources/<cihaz>/` altına yeni `commands.jsonl` veya döküman koyunca 15 dakika içinde yalnız değişen dosyalar yeniden indekslenir (SHA-256).
+- 🔎 **Hybrid search:** 160k commands (Aruba VMC 57,741 + CX 6200M 102,032, after filtering) and 7,333 document chunks, searched with SQLite FTS5 (BM25) plus multilingual vector search, merged with Reciprocal Rank Fusion.
+- ✅ **Two layers against hallucination:** every `command` in an answer is looked up in the device's real command tree, and a small judge model returns `ONAY` (approve) or `RED` (reject) depending on whether the context supports the answer.
+- 🧱 **Devices never mix:** each device is its own model in Open WebUI (`aruba-vmc`, `aruba-cx-6200m`); search only covers that device's index and documents.
+- 🖼️ **Image reading:** if a message contains an image (CLI output, error screen), the request is routed to `qwen2.5vl:7b` automatically.
+- 🏠 **Fully local:** models run on CPU in Ollama; only Caddy's ports 80/443 are exposed.
+- 🔁 **Self-updating:** drop a new `commands.jsonl` or document under `sources/<device>/` and only the changed files are re-indexed within 15 minutes (SHA-256).
 
-
----
-
-## 📑 İçindekiler
-
-- [Problem ve çözüm](#-problem-ve-çözüm)
-- [Mimari](#-mimari)
-- [Teknoloji yığını](#-teknoloji-yığını)
-- [Hızlı başlangıç](#-hızlı-başlangıç)
-- [Kullanım](#-kullanım)
-- [API referansı](#-api-referansı)
-- [Yapılandırma](#-yapılandırma)
-- [Proje yapısı](#-proje-yapısı)
-- [Geliştirme ve test](#-geliştirme-ve-test)
-- [Güvenlik ve sınırlar](#-güvenlik-ve-sınırlar)
-- [Yol haritası](#-yol-haritası)
-- [Katkı ve lisans](#-katkı-ve-lisans)
+> **Language:** the documentation is in English (Turkish versions live in [`docs/tr/`](docs/tr/) and [`README.tr.md`](README.tr.md)). The assistant itself currently answers in Turkish: its prompt and the `Doğrulama` / `Hakem` footer are Turkish (see `server/rag-api/app.py`).
 
 ---
 
-## 🎯 Problem ve çözüm
+## 📑 Contents
 
-| Problem | Sensei-Aruba'daki çözüm |
+- [Problem and solution](#-problem-and-solution)
+- [Architecture](#-architecture)
+- [Tech stack](#-tech-stack)
+- [Quick start](#-quick-start)
+- [Usage](#-usage)
+- [API reference](#-api-reference)
+- [Configuration](#-configuration)
+- [Project structure](#-project-structure)
+- [Development and testing](#-development-and-testing)
+- [Security and limits](#-security-and-limits)
+- [Roadmap](#-roadmap)
+- [Contributing and license](#-contributing-and-license)
+
+---
+
+## 🎯 Problem and solution
+
+| Problem | Solution in Sensei-Aruba |
 |---|---|
-| Genel amaçlı LLM'ler CLI komutlarını **uydurur** (olmayan parametre, yanlış mod). | Model yalnız aramadan gelen `BAĞLAM` ile cevap verir; cevaptaki komutlar komut ağacıyla deterministik olarak doğrulanır. |
-| Komut dizinleri dev boyutta (233 bin satır); genel döküman RAG'ı yavaş ve isabetsiz. | Ayrı `rag-api` servisi: birebir kelime eşleşmesi için FTS5, anlam için vektör, ikisi RRF ile birleşir. |
-| Bulut API'leri token ister ve konfigürasyon bilgisini dışarı taşır. | Açık ağırlıklı Qwen modelleri Ollama'da, kendi sunucunuzda; API anahtarı yok. |
-| Farklı cihazların komutları birbirine karışır. | Klasör adı = model adı; her model yalnız kendi cihazının dizininde arar. |
-| Her yeni döküman için yeniden eğitim pahalı. | Fine-tuning yok, RAG var: dosyayı klasöre koymak yeterli. |
+| General-purpose LLMs **invent** CLI commands (nonexistent parameters, wrong mode). | The model answers only from the retrieved `BAĞLAM` (context); commands in the answer are verified deterministically against the command tree. |
+| Command indexes are huge (233k lines); generic document RAG is slow and inaccurate. | A separate `rag-api` service: FTS5 for exact keyword matches, vectors for meaning, merged with RRF. |
+| Cloud APIs need tokens and send configuration data outside. | Open-weight Qwen models run in Ollama on your own server; no API key. |
+| Commands of different devices get mixed up. | Folder name = model name; each model searches only its own device's index. |
+| Retraining for every new document is expensive. | No fine-tuning, just RAG: put the file in the folder. |
 
-**Tasarım kararları ve nedenleri** (ayrıntı: [KULLANIM.md §1](docs/KULLANIM.md#1-genel-bakış)):
+**Design decisions and their reasons** (details: [USAGE.md §1](docs/USAGE.md#1-overview)):
 
-| Karar | Neden |
+| Decision | Reason |
 |---|---|
-| Fine-tuning yerine **RAG** | Komutlar dizinden birebir gelir, yeni döküman için eğitim gerekmez. |
-| Claude/GPT yerine **açık modeller** | Lokal ve token'sız çalışma şartı. |
-| **Docker Compose**, markadan bağımsız tasarım | Tek komutla aç/kapa; yeni cihaz = yeni `sources/<cihaz>/` klasörü. |
-| **Ayrı `rag-api`** servisi | Open WebUI'ın genel RAG'ı 233 bin satırlık CLI dizini için yavaş ve isabetsizdi. |
-| **İki aşamalı indeksleme** | Anahtar kelime indeksi dakikalar içinde hazır olur; vektörler arkadan cihaz cihaz hesaplanır. |
+| **RAG** instead of fine-tuning | Commands come verbatim from the index; no training for new documents. |
+| **Open models** instead of Claude/GPT | Requirement: local and token-free operation. |
+| **Docker Compose**, brand-agnostic design | Start/stop with one command; new device = new `sources/<device>/` folder. |
+| **Separate `rag-api`** service | Open WebUI's generic RAG was too slow and inaccurate for a 233k-line CLI index. |
+| **Two-stage indexing** | The keyword index is ready in minutes; vectors are computed device by device in the background. |
 
 ---
 
-## 🧩 Mimari
+## 🧩 Architecture
 
-### Bileşenler
+### Components
 
 ```mermaid
 flowchart LR
-    user(["👤 Tarayıcı"]) -->|"HTTPS :443<br/>(:80 → 308 yönlendirme)"| caddy
+    user(["👤 Browser"]) -->|"HTTPS :443<br/>(:80 → 308 redirect)"| caddy
 
     subgraph host["Ubuntu Server · /opt/aruba-bot · docker compose"]
-        caddy["caddy<br/>tls internal, on_demand"] -->|"open-webui:8080"| webui["open-webui<br/>sohbet, kullanıcılar,<br/>web arama"]
+        caddy["caddy<br/>tls internal, on_demand"] -->|"open-webui:8080"| webui["open-webui<br/>chat, users,<br/>web search"]
         webui -->|"OpenAI API<br/>rag-api:8000/v1"| rag["rag-api<br/>FastAPI · app.py"]
-        webui -->|"ham modeller + bge-m3<br/>ollama:11434"| ollama["ollama<br/>qwen3:8b · qwen2.5vl:7b<br/>qwen3:1.7b · bge-m3"]
+        webui -->|"raw models + bge-m3<br/>ollama:11434"| ollama["ollama<br/>qwen3:8b · qwen2.5vl:7b<br/>qwen3:1.7b · bge-m3"]
         webui -->|"docling:5001"| docling["docling<br/>PDF/DOCX/OCR"]
         rag -->|"/api/chat"| ollama
         rag -->|"/v1/convert/file/async"| docling
         rag --- data[("ragdata volume<br/>index.db · vec_*.npy · dvec_*.npy")]
-        src[/"./sources (salt okunur)<br/>‹cihaz›/commands.jsonl<br/>‹cihaz›/docs/"/] --> rag
+        src[/"./sources (read-only)<br/>‹device›/commands.jsonl<br/>‹device›/docs/"/] --> rag
     end
 
     subgraph pc["Windows PC"]
-        crawler["crawler/aruba_crawl.py<br/>SSH + ? taraması"]
-        vmctl["vm-control<br/>AI Başlat / AI Uyut"]
+        crawler["crawler/aruba_crawl.py<br/>SSH + ? crawl"]
+        vmctl["vm-control<br/>AI Start / AI Sleep"]
     end
     crawler -.->|"commands.jsonl (scp)"| src
     vmctl -.->|"vmrun + ssh wake.sh"| host
 ```
 
-| Katman | Bileşen | Sorumluluk |
+| Layer | Component | Responsibility |
 |---|---|---|
-| Giriş | `caddy` | TLS sonlandırma (kendi CA'sı), HTTP→HTTPS, tek açık port grubu |
-| Sunum | `open-webui` | Sohbet arayüzü, kullanıcı yönetimi, görsel yükleme, web arama |
-| Orkestrasyon | `rag-api` (`server/rag-api/app.py`) | İndeksleme, hibrit arama, istem kurma, doğrulama, hakem; OpenAI uyumlu API |
-| Veri | SQLite FTS5 + NumPy (`ragdata` volume) | Komut ve döküman tabloları, normalize vektör matrisleri |
-| Çıkarım | `ollama` | Cevap, görsel ve hakem modelleri (CPU) |
-| Dönüştürme | `docling` | PDF/Office/görsel → Markdown (OCR açık) |
-| Toplama | `crawler/` (PC) | Canlı cihazdan `?` yardımıyla CLI ağacını tarar |
-| Operasyon | systemd birimleri, `vm-control/` | Açılış, 15 dk'da bir yeniden indeksleme, boşta önbellek bırakma, VM uyut/uyandır |
+| Entry | `caddy` | TLS termination (own CA), HTTP→HTTPS, the only exposed ports |
+| Presentation | `open-webui` | Chat UI, user management, image upload, web search |
+| Orchestration | `rag-api` (`server/rag-api/app.py`) | Indexing, hybrid search, prompt building, verification, judge; OpenAI-compatible API |
+| Data | SQLite FTS5 + NumPy (`ragdata` volume) | Command and document tables, normalized vector matrices |
+| Inference | `ollama` | Answer, vision and judge models (CPU) |
+| Conversion | `docling` | PDF/Office/image → Markdown (OCR on) |
+| Collection | `crawler/` (PC) | Crawls the CLI tree from a live device using `?` help |
+| Operations | systemd units, `vm-control/` | Boot, re-index every 15 min, drop idle cache, suspend/resume the VM |
 
-### Bir sorunun yolu
+### The path of a question
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor U as Kullanıcı
+    actor U as User
     participant W as open-webui
     participant R as rag-api
-    participant DB as SQLite FTS5 + vektörler
+    participant DB as SQLite FTS5 + vectors
     participant O as ollama
 
-    U->>W: Soru (model = cihaz, ör. aruba-cx-6200m)
+    U->>W: Question (model = device, e.g. aruba-cx-6200m)
     W->>R: POST /v1/chat/completions (stream)
-    R->>R: expand(): SYNONYMS ile CLI terimleri ekle, STOP kelimelerini at
-    R->>DB: search(): BM25 ilk 50 + kosinüs ilk 50, yalnız bu cihaz
-    DB-->>R: RRF 1/(60+sıra) → ilk 15 komut (TOP_K)
-    R->>DB: search_docs(): aynı hibrit arama, döküman parçaları
-    DB-->>R: ilk 4 parça (DOC_TOP_K)
-    R->>O: SYSTEM + son 6 mesaj + BAĞLAM + SORU (think=false)
-    Note over R,O: Görsel varsa qwen2.5vl:7b, yoksa qwen3:8b
-    O-->>R: Cevap token token
-    R-->>W: Akış (SSE)
-    R->>R: verify(): cevaptaki her komut ağaçta var mı?
+    R->>R: expand(): add CLI terms via SYNONYMS, drop STOP words
+    R->>DB: search(): BM25 top 50 + cosine top 50, this device only
+    DB-->>R: RRF 1/(60+rank) → top 15 commands (TOP_K)
+    R->>DB: search_docs(): same hybrid search, document chunks
+    DB-->>R: top 4 chunks (DOC_TOP_K)
+    R->>O: SYSTEM + last 6 messages + CONTEXT + QUESTION (think=false)
+    Note over R,O: qwen2.5vl:7b if there is an image, otherwise qwen3:8b
+    O-->>R: Answer, token by token
+    R-->>W: Stream (SSE)
+    R->>R: verify(): does every command in the answer exist in the tree?
     R->>O: judge(): qwen3:1.7b, "ONAY: ..." / "RED: ..."
-    O-->>R: Tek satır karar
-    R-->>W: Dipnot: Doğrulama ✅/⚠️ + Hakem
-    W-->>U: Cevap + dipnot
+    O-->>R: One-line verdict
+    R-->>W: Footer: Doğrulama ✅/⚠️ + Hakem
+    W-->>U: Answer + footer
 ```
 
-### İndeksleme
+### Indexing
 
 ```mermaid
 flowchart LR
-    DEV["Canlı cihaz<br/>(VMC / 6200M)"] -->|"aruba_crawl.py<br/>SSH ile ? taraması"| TREE["aruba_cli_tree_*.md"]
-    TREE -.->|"satır başına JSON<br/>tree_to_jsonl.py"| JSONL["sources/‹cihaz›/commands.jsonl"]
-    PDF["Üretici dökümanları<br/>PDF / DOCX / görsel"] -->|"Docling (OCR)<br/>büyük PDF: pdf_to_md.py"| MD["sources/‹cihaz›/docs/"]
-    JSONL --> P1["Aşama 1: FTS5<br/>cr, pipe ve yönlendirme satırları<br/>ile tekrarlar elenir"]
-    P1 --> P2["Aşama 2: vektörler<br/>MiniLM-L12, cihaz cihaz"]
-    MD --> P3["Aşama 3: dökümanlar<br/>başlığa göre ~1000 karakter, 150 örtüşme"]
+    DEV["Live device<br/>(VMC / 6200M)"] -->|"aruba_crawl.py<br/>SSH + ? crawl"| TREE["aruba_cli_tree_*.md"]
+    TREE -.->|"one JSON per line<br/>tree_to_jsonl.py"| JSONL["sources/‹device›/commands.jsonl"]
+    PDF["Vendor documents<br/>PDF / DOCX / image"] -->|"Docling (OCR)<br/>large PDF: pdf_to_md.py"| MD["sources/‹device›/docs/"]
+    JSONL --> P1["Stage 1: FTS5<br/>cr, pipe and redirect lines<br/>and duplicates dropped"]
+    P1 --> P2["Stage 2: vectors<br/>MiniLM-L12, device by device"]
+    MD --> P3["Stage 3: documents<br/>~1000 chars by heading, 150 overlap"]
     P1 --> FTS[("cmds + fts")]
-    P2 --> VEC[("vec_‹cihaz›.npy")]
-    P3 --> DOCS[("docs + docs_fts<br/>dvec_‹cihaz›.npy")]
+    P2 --> VEC[("vec_‹device›.npy")]
+    P3 --> DOCS[("docs + docs_fts<br/>dvec_‹device›.npy")]
 ```
 
-İndeksleme rag-api açılırken ve `aruba-bot-ingest.timer` ile 15 dakikada bir çalışır. `commands.jsonl` dosyasının SHA-256 özeti değişmediyse cihaz yeniden işlenmez. Bir cihazın durumu `/health` çıktısında şu sırayla ilerler:
+Indexing runs when rag-api starts and every 15 minutes via `aruba-bot-ingest.timer`. A device is not reprocessed if the SHA-256 of its `commands.jsonl` is unchanged. A device's state in `/health` moves through these steps:
 
 ```mermaid
 stateDiagram-v2
@@ -163,93 +166,93 @@ stateDiagram-v2
     state "indexing" as idx
     state "keyword-only (vectors queued)" as kq
     state "keyword-only (vectors indexing)" as kv
-    state "kayıt sayısı (ör. 57741)" as done
-    [*] --> idx: SHA-256 değişti
-    [*] --> done: SHA-256 aynı
-    idx --> kq: FTS5 hazır, arama açık
-    kq --> kv: sıra bu cihaza geldi
-    kv --> done: vektör dosyası kaydedildi
+    state "record count (e.g. 57741)" as done
+    [*] --> idx: SHA-256 changed
+    [*] --> done: SHA-256 same
+    idx --> kq: FTS5 ready, search is open
+    kq --> kv: this device's turn
+    kv --> done: vector file saved
 ```
 
-> Daha fazlası (veri modeli ER diyagramı, uyanma/onarım akışı, bellek yönetimi): **[docs/architecture.md](docs/architecture.md)**
+> More (data model ER diagram, wake/repair flow, memory management): **[docs/architecture.md](docs/architecture.md)**
 
 ---
 
-## 🧰 Teknoloji yığını
+## 🧰 Tech stack
 
-Sürümler, çalışan kurulumdan 2026-11-01'de okundu. Compose imajları `latest`/`main` etiketli olduğundan yeni kurulumda değişebilir.
+Versions were read from the running installation on 2026-11-01. Compose images are tagged `latest`/`main`, so a fresh install may differ.
 
-| Bileşen | Teknoloji | Sürüm | Rolü |
+| Component | Technology | Version | Role |
 |---|---|---|---|
-| LLM sunucusu | [Ollama](https://ollama.com) | 0.40.6 | Modelleri CPU'da çalıştırır |
-| Cevap modeli | `qwen3:8b` | — | Türkçe cevap, talimata uyum |
-| Görsel modeli | `qwen2.5vl:7b` | — | Ekran görüntüsü / CLI çıktısı okuma |
-| Hakem modeli | `qwen3:1.7b` | — | Tek satır `ONAY` / `RED` |
-| Arayüz | [Open WebUI](https://github.com/open-webui/open-webui) | 0.12.3 | Sohbet, kullanıcılar, web arama (DuckDuckGo) |
-| RAG servisi | Python + FastAPI + uvicorn | 3.12.16 / 0.162.0 | `rag-api` |
-| Vektör | fastembed (ONNX) · `paraphrase-multilingual-MiniLM-L12-v2` | 0.9.1 | 384 boyutlu çok dilli embedding |
-| Anahtar kelime | SQLite FTS5 (BM25) | — | Birebir komut eşleşmesi |
-| Döküman dönüştürme | Docling Serve (CPU) | `latest` | PDF/Office/görsel → Markdown, OCR |
+| LLM server | [Ollama](https://ollama.com) | 0.40.6 | Runs the models on CPU |
+| Answer model | `qwen3:8b` | — | Turkish answers, instruction following |
+| Vision model | `qwen2.5vl:7b` | — | Reading screenshots / CLI output |
+| Judge model | `qwen3:1.7b` | — | One-line `ONAY` / `RED` |
+| UI | [Open WebUI](https://github.com/open-webui/open-webui) | 0.12.3 | Chat, users, web search (DuckDuckGo) |
+| RAG service | Python + FastAPI + uvicorn | 3.12.16 / 0.162.0 | `rag-api` |
+| Vectors | fastembed (ONNX) · `paraphrase-multilingual-MiniLM-L12-v2` | 0.9.1 | 384-dim multilingual embeddings |
+| Keyword | SQLite FTS5 (BM25) | — | Exact command matching |
+| Document conversion | Docling Serve (CPU) | `latest` | PDF/Office/image → Markdown, OCR |
 | Reverse proxy | Caddy | 2.11.7 | HTTPS, `tls internal` |
-| Konteyner | Docker Engine + Compose eklentisi | 29.1.3 (Engine) | Tüm servisler |
-| İşletim sistemi | Ubuntu Server | 26.04.1 LTS | VMware Workstation VM'i |
-| Tarayıcı (crawler) | Python + paramiko | — | Cihazdan CLI ağacını çıkarır |
+| Container runtime | Docker Engine + Compose plugin | 29.1.3 (Engine) | All services |
+| Operating system | Ubuntu Server | 26.04.1 LTS | VMware Workstation VM |
+| Crawler | Python + paramiko | — | Extracts the CLI tree from a device |
 
 ---
 
-## 🚀 Hızlı başlangıç
+## 🚀 Quick start
 
-**Önkoşullar:** Docker ve Compose eklentisi kurulu bir Ubuntu Server, disk (modeller ~14 GB, işletim sistemi + imajlar ~20 GB; 150 GB önerilir). Mevcut kurulum 12 vCPU / 14 GB RAM ile GPU'suz çalışıyor; boyutlandırma önerileri: [KULLANIM.md §3](docs/KULLANIM.md#3-donanım-ve-sanal-makine).
+**Prerequisites:** an Ubuntu Server with Docker and the Compose plugin, and disk space (models ~14 GB, OS + images ~20 GB; 150 GB recommended). The current setup runs on 12 vCPU / 14 GB RAM with no GPU; sizing advice: [USAGE.md §3](docs/USAGE.md#3-hardware-and-virtual-machine).
 
 ```bash
-# 1) Kodu al ve sunucu klasörünü hazırla
+# 1) Get the code and prepare the server folder
 git clone https://github.com/emreyigit-tasdelen/Sensei-Aruba.git && cd Sensei-Aruba
 sudo mkdir -p /opt/aruba-bot && sudo chown $USER /opt/aruba-bot
 cp -r server/. /opt/aruba-bot/
 
-# 2) Komut dizinini kaynak olarak koy (klasör adı = model adı).
-#    Hızlı deneme için repodaki örnek yeter; tam dizini kendi cihazınızdan üretin
-#    (crawler/README.md: tarama + tree_to_jsonl.py).
+# 2) Put the command index in place as a source (folder name = model name).
+#    The sample in the repo is enough for a quick try; generate the full index from
+#    your own device (crawler/README.md: crawl + tree_to_jsonl.py).
 for d in aruba-vmc aruba-cx-6200m; do
   mkdir -p /opt/aruba-bot/sources/$d && cp crawler/$d/commands.sample.jsonl /opt/aruba-bot/sources/$d/commands.jsonl
 done
 
-# 3) Servisleri başlat ve modelleri indir
+# 3) Start the services and pull the models
 cd /opt/aruba-bot && sudo docker compose up -d --build
 for m in qwen3:8b qwen3:1.7b qwen2.5vl:7b bge-m3; do sudo docker compose exec ollama ollama pull $m; done
 
-# 4) İndeks durumunu gör
+# 4) Check the index status
 sh status.sh
 ```
 
-Beklenen çıktı (indeksleme bittiğinde):
+Expected output (once indexing has finished):
 
 ```json
 {"status":"ready","devices":{"aruba-cx-6200m":102032,"aruba-vmc":57741},"docs":{"aruba-cx-6200m":{"files":0,"chunks":0},"aruba-vmc":{"files":5,"chunks":7333}}}
 ```
 
-> ⏱️ **Süreler:** Konteynerler birkaç dakikada ayağa kalkar ve anahtar kelime araması hemen çalışır (`keyword-only`). Modellerin indirilmesi (~14 GB) ve CPU'da vektör indeksleme (6200M ~1,5 saat, VMC ~1 saat) daha uzun sürer. Bu sırada cevapların başında "Vektör indeksi hazırlanıyor" notu görünür.
+> ⏱️ **Timing:** the containers come up in a few minutes and keyword search works immediately (`keyword-only`). Downloading the models (~14 GB) and vector indexing on CPU (6200M ~1.5 h, VMC ~1 h) take longer. Until then, answers start with a "vector index is being prepared" note.
 
-Sonra tarayıcıda `https://<sunucu-ip>` adresini açın. Sertifika kendi imzalı olduğu için tarayıcı uyarı verir. **İlk kayıt olan kullanıcı admin olur.** Kalıcı kurulum (systemd birimleri, firewall, Open WebUI ayarları) için: [KULLANIM.md §7–§13](docs/KULLANIM.md#7-uygulama-dosyaları).
+Then open `https://<server-ip>` in a browser. The certificate is self-signed, so the browser warns. **The first user to register becomes admin.** For a permanent setup (systemd units, firewall, Open WebUI settings): [USAGE.md §7–§13](docs/USAGE.md#7-application-files).
 
 ---
 
-## 💬 Kullanım
+## 💬 Usage
 
-Sohbet ekranındaki model menüsünden cihazı seçin (`aruba-vmc` veya `aruba-cx-6200m`) ve sorunuzu Türkçe yazın:
+Pick the device from the model menu on the chat screen (`aruba-vmc` or `aruba-cx-6200m`) and write your question in Turkish:
 
-- `802.1x config yaz bana port ge 1 1 1 için`
-- `show komutlarıyla aaa ayarlarını nasıl görürüm?`
-- `vlan 10 oluşturup 1/1/5 portuna access olarak ata`
+- `802.1x config yaz bana port ge 1 1 1 için` (write me an 802.1x config for port ge 1/1/1)
+- `show komutlarıyla aaa ayarlarını nasıl görürüm?` (how do I see the AAA settings with show commands?)
+- `vlan 10 oluşturup 1/1/5 portuna access olarak ata` (create VLAN 10 and assign it to port 1/1/5 as access)
 
-Sunucuda komut satırından da sorabilirsiniz (`server/ask.sh`):
+You can also ask from the server's command line (`server/ask.sh`):
 
 ```bash
 sh /opt/aruba-bot/ask.sh aruba-cx-6200m "802.1x config yaz bana port 1/1/1 için"
 ```
 
 <details open>
-<summary><b>Gerçek çıktı</b> (2026-11-01, düzenlenmeden; bu çalıştırma CPU'da 9 dk 37 sn sürdü, model yükleme ve hakem dahil)</summary>
+<summary><b>Real output</b> (2026-11-01, unedited; this run took 9 min 37 s on CPU, including model loading and the judge)</summary>
 
 ````text
 ```plaintext
@@ -266,38 +269,37 @@ Kaynak: [aruba-cx-6200m | config] aaa authentication port-access dot1x authentic
 **Hakem:** ONAY: Komutlar BAĞLAM ile destekleniyor.
 ````
 
-Bu örnek iki katmanın neden birlikte kullanıldığını gösteriyor. Hakem model cevabı onayladı. Deterministik doğrulama ise modelin dizindeki bir komutun sonuna `1/1/1` eklediğini ve ortaya çıkan satırın komut ağacında olmadığını yakaladı. Kullanıcı ⚠️ işaretini görür ve komutu cihazda `?` ile kontrol eder.
+This example shows why both layers are used together. The judge model approved the answer. The deterministic verification, however, caught that the model appended `1/1/1` to a command from the index and that the resulting line is not in the command tree. The user sees the ⚠️ mark and checks the command on the device with `?`.
 
 </details>
 
-Cevabın sonundaki dipnotun anlamı:
+What the footer at the end of an answer means:
 
-| Satır | Anlamı |
+| Line | Meaning |
 |---|---|
-| `Doğrulama: ✅ N komut dizinde var` | Cevaptaki komutlar cihazın komut ağacında bulundu (`<PARAM>`, `A.B.C.D`, BÜYÜK HARF yer tutucular serbest). |
-| `⚠️ dizinde yok: ...` | Komut ağaçta yok. Crawler'ın taramadığı bir alt moddan da olabilir; cihazda `?` ile kontrol edin. |
-| `Hakem: ONAY / RED` | `qwen3:1.7b` cevabın bağlamla desteklenip desteklenmediğine karar verdi. |
+| `Doğrulama: ✅ N komut dizinde var` (verification: N commands exist in the index) | The commands in the answer were found in the device's command tree (`<PARAM>`, `A.B.C.D` and UPPERCASE placeholders are allowed). |
+| `⚠️ dizinde yok: ...` (not in the index) | The command is not in the tree. It may also come from a submode the crawler did not visit; check it on the device with `?`. |
+| `Hakem: ONAY / RED` (judge: approve / reject) | `qwen3:1.7b` decided whether the context supports the answer. |
 
-**Yeni cihaz eklemek:** `sources/<cihaz-adı>/commands.jsonl` dosyasını koyun (klasör adı küçük harf ve tireli olsun, ör. `aruba-cx-6300`). Dökümanları `sources/<cihaz-adı>/docs/` altına koyun. Ayrıntı: [KULLANIM.md §15–§16](docs/KULLANIM.md#15-yeni-cihaz--yeni-marka-ekleme).
-
+**Adding a new device:** put `sources/<device-name>/commands.jsonl` in place (lowercase folder name with hyphens, e.g. `aruba-cx-6300`) and the documents under `sources/<device-name>/docs/`. Details: [USAGE.md §15–§16](docs/USAGE.md#15-adding-a-new-device-or-brand).
 
 ---
 
-## 🔌 API referansı
+## 🔌 API reference
 
-`rag-api` yalnız Docker iç ağında (`http://rag-api:8000`) erişilebilir; dışarıya port yayınlanmaz.
+`rag-api` is reachable only on the Docker internal network (`http://rag-api:8000`); no port is published.
 
-| Uç nokta | Açıklama |
+| Endpoint | Description |
 |---|---|
-| `GET /v1/models` | Cihaz listesi = model listesi (Open WebUI bunu okur) |
-| `POST /v1/chat/completions` | OpenAI uyumlu sohbet, `stream: true` destekli |
-| `GET /health` | Genel durum ve cihaz/döküman indeks durumu |
-| `POST /ingest` | Yeniden indekslemeyi başlatır; indeksleme sürüyorsa `{"started": false, "reason": "indexing"}` |
+| `GET /v1/models` | Device list = model list (Open WebUI reads this) |
+| `POST /v1/chat/completions` | OpenAI-compatible chat, supports `stream: true` |
+| `GET /health` | Overall status and device/document index status |
+| `POST /ingest` | Starts re-indexing; if indexing is already running it returns `{"started": false, "reason": "indexing"}` |
 
 <details>
-<summary><b>Örnek istekler ve cevaplar</b></summary>
+<summary><b>Example requests and responses</b></summary>
 
-Sunucuda, konteynerin içinden:
+On the server, from inside the container:
 
 ```bash
 cd /opt/aruba-bot
@@ -309,179 +311,181 @@ sudo docker compose exec -T rag-api python -c "import urllib.request;print(urlli
                             {"id": "aruba-vmc", "object": "model", "owned_by": "rag-api"}]}
 ```
 
-Sohbet isteği gövdesi (OpenAI biçimi; görsel için `content` dizisinde `data:` URL'li (base64) `image_url` parçası):
+Chat request body (OpenAI format; for an image, add an `image_url` part with a `data:` URL (base64) to the `content` array):
 
 ```json
 {"model": "aruba-vmc", "stream": false,
  "messages": [{"role": "user", "content": "show ap database komutu ne gösterir?"}]}
 ```
 
-Cevap: `choices[0].message.content` = model cevabı + `---` ayıracından sonra `Doğrulama` ve `Hakem` satırları.
+Response: `choices[0].message.content` = the model's answer, then a `---` separator followed by the `Doğrulama` and `Hakem` lines.
 
 </details>
 
 ---
 
-## 🔧 Yapılandırma
+## 🔧 Configuration
 
-Tüm ayarlar [`server/compose.yaml`](server/compose.yaml) içindedir. Open WebUI'da `ENABLE_PERSISTENT_CONFIG: "false"` olduğu için arayüzde yapılan değişiklikler yerine her açılışta bu dosya geçerlidir.
+All settings are in [`server/compose.yaml`](server/compose.yaml). Because Open WebUI runs with `ENABLE_PERSISTENT_CONFIG: "false"`, this file wins on every start over changes made in the UI.
 
 <details>
-<summary><b>rag-api ortam değişkenleri</b></summary>
+<summary><b>rag-api environment variables</b></summary>
 
-| Değişken | Varsayılan (kod) | Compose'daki değer | Açıklama |
+| Variable | Default (code) | Value in Compose | Description |
 |---|---|---|---|
-| `OLLAMA_URL` | `http://ollama:11434` | aynı | Ollama adresi |
-| `CHAT_MODEL` | `qwen3:8b` | `qwen3:8b` | Cevap modeli |
-| `VISION_MODEL` | `qwen2.5vl:7b` | `qwen2.5vl:7b` | Görsel içeren mesajlar |
-| `JUDGE_MODEL` | `""` (kapalı) | `qwen3:1.7b` | Boşsa hakem LLM çalışmaz, deterministik doğrulama sürer |
-| `EMB_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | — | Değiştirirseniz indeksi silip yeniden oluşturun |
-| `TOP_K` | `15` | — | Bağlama giren komut sayısı |
-| `DOC_TOP_K` | `4` | — | Bağlama giren döküman parçası sayısı |
-| `DOCLING_URL` | `http://docling:5001` | — | Döküman dönüştürücü |
-| `DATA_DIR` | `/data` | `ragdata` volume | SQLite ve vektör dosyaları |
-| `SOURCES_DIR` | `/sources` | `./sources` (salt okunur) | Cihaz klasörleri |
+| `OLLAMA_URL` | `http://ollama:11434` | same | Ollama address |
+| `CHAT_MODEL` | `qwen3:8b` | `qwen3:8b` | Answer model |
+| `VISION_MODEL` | `qwen2.5vl:7b` | `qwen2.5vl:7b` | Messages that contain an image |
+| `JUDGE_MODEL` | `""` (off) | `qwen3:1.7b` | If empty the judge LLM is skipped and the deterministic verification continues |
+| `EMB_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | — | If you change it, delete the index and rebuild |
+| `TOP_K` | `15` | — | Number of commands in the context |
+| `DOC_TOP_K` | `4` | — | Number of document chunks in the context |
+| `DOCLING_URL` | `http://docling:5001` | — | Document converter |
+| `DATA_DIR` | `/data` | `ragdata` volume | SQLite and vector files |
+| `SOURCES_DIR` | `/sources` | `./sources` (read-only) | Device folders |
 
 </details>
 
 <details>
-<summary><b>Ollama ve kaynak sınırları</b></summary>
+<summary><b>Ollama and resource limits</b></summary>
 
-| Ayar | Değer | Neden |
+| Setting | Value | Reason |
 |---|---|---|
-| `OLLAMA_MAX_LOADED_MODELS` | `3` | Cevap/görsel + hakem + embedding aynı anda bellekte |
-| `OLLAMA_NUM_PARALLEL` | `1` | CPU'da tek istek en verimli |
-| `OLLAMA_KEEP_ALIVE` | `5m` | 5 dk boşta kalan model bellekten atılır |
-| `OLLAMA_CONTEXT_LENGTH` | `8192` | Bağlam + geçmiş için yeterli |
-| `cpus` (ollama / docling / rag-api) | `10` / `4` / `4` | SSH ve arayüz kilitlenmesin |
-| `mem_limit` (ollama) | `10g` | 14 GB'lık VM'de taşmayı önler |
-| Log | `10m × 3` | Disk koruması |
+| `OLLAMA_MAX_LOADED_MODELS` | `3` | Answer/vision + judge + embedding in memory at once |
+| `OLLAMA_NUM_PARALLEL` | `1` | A single request is the most efficient on CPU |
+| `OLLAMA_KEEP_ALIVE` | `5m` | A model idle for 5 min is evicted from memory |
+| `OLLAMA_CONTEXT_LENGTH` | `8192` | Enough for context + history |
+| `cpus` (ollama / docling / rag-api) | `10` / `4` / `4` | So SSH and the UI do not freeze |
+| `mem_limit` (ollama) | `10g` | Prevents overflow on a 14 GB VM |
+| Log | `10m × 3` | Disk protection |
 
 </details>
 
 <details>
 <summary><b>Open WebUI</b></summary>
 
-| Değişken | Değer | Açıklama |
+| Variable | Value | Description |
 |---|---|---|
-| `WEBUI_NAME` | `Sensei-Aruba` | Arayüz adı ([`open-webui/Dockerfile`](server/open-webui/Dockerfile) ad ekini kaldırır) |
-| `DEFAULT_MODELS` | `aruba-vmc` | Varsayılan cihaz |
-| `OPENAI_API_BASE_URL` | `http://rag-api:8000/v1` | Cihaz modelleri buradan gelir |
-| `ENABLE_*_GENERATION` | `false` | Başlık/etiket/öneri üretimi kapalı (CPU'da yavaş) |
-| `RAG_EMBEDDING_MODEL` | `bge-m3` | Open WebUI'ın kendi Knowledge RAG'ı için |
-| `CONTENT_EXTRACTION_ENGINE` | `docling` | Yüklenen dosyalar Docling ile işlenir |
-| `WEB_SEARCH_ENGINE` | `duckduckgo` | Sohbet başına açılır |
+| `WEBUI_NAME` | `Sensei-Aruba` | UI name ([`open-webui/Dockerfile`](server/open-webui/Dockerfile) removes the name suffix) |
+| `DEFAULT_MODELS` | `aruba-vmc` | Default device |
+| `OPENAI_API_BASE_URL` | `http://rag-api:8000/v1` | Device models come from here |
+| `ENABLE_*_GENERATION` | `false` | Title/tag/suggestion generation off (slow on CPU) |
+| `RAG_EMBEDDING_MODEL` | `bge-m3` | For Open WebUI's own Knowledge RAG |
+| `CONTENT_EXTRACTION_ENGINE` | `docling` | Uploaded files are processed with Docling |
+| `WEB_SEARCH_ENGINE` | `duckduckgo` | Enabled per chat |
 
 </details>
 
 <details>
-<summary><b>Sunucu script'leri ve systemd birimleri</b></summary>
+<summary><b>Server scripts and systemd units</b></summary>
 
-| Dosya | Görev |
+| File | Purpose |
 |---|---|
-| `ask.sh <model> "<soru>"` | Komut satırından rag-api'ye soru sorar |
-| `status.sh` | `/health` çıktısı + rag-api loglarındaki hatalar |
-| `bench.sh` | `qwen3:8b` yükleme süresi ve token/sn ölçümü |
-| `wake.sh` | Açılış/uyanma sonrası HTTPS 200 gelene kadar onarım merdiveni |
-| `idle.sh [status]` | Boşta mı (`idle`/`active`)? Boştaysa sayfa önbelleğini bırakır |
-| `netdiag.sh` | Caddy portları için ağ teşhisi |
-| `docling-api.sh` | Docling API yollarını listeler (teşhis) |
-| `aruba-bot.service` | Açılışta `docker compose up -d` |
-| `aruba-bot-ingest.timer` | 15 dk'da bir `POST /ingest` |
-| `aruba-bot-idle.timer` | 5 dk'da bir `idle.sh` |
+| `ask.sh <model> "<question>"` | Asks rag-api a question from the command line |
+| `status.sh` | `/health` output + errors in the rag-api logs |
+| `bench.sh` | Measures `qwen3:8b` load time and tokens/s |
+| `wake.sh` | Repair ladder after boot/resume until HTTPS returns 200 |
+| `idle.sh [status]` | Is it idle (`idle`/`active`)? If idle, drops the page cache |
+| `netdiag.sh` | Network diagnostics for the Caddy ports |
+| `docling-api.sh` | Lists the Docling API paths (diagnostics) |
+| `aruba-bot.service` | `docker compose up -d` at boot |
+| `aruba-bot-ingest.timer` | `POST /ingest` every 15 min |
+| `aruba-bot-idle.timer` | `idle.sh` every 5 min |
 
 </details>
 
 ---
 
-## 📂 Proje yapısı
+## 📂 Project structure
 
 ```text
 Sensei-Aruba/
-├── server/                          # Sunucuda /opt/aruba-bot altına kopyalanan her şey
-│   ├── compose.yaml                 # 5 servis: ollama, docling, rag-api, open-webui, caddy
-│   ├── Caddyfile                    # HTTPS, tls internal + on_demand, open-webui:8080'e proxy
+├── server/                          # Everything copied to /opt/aruba-bot on the server
+│   ├── compose.yaml                 # 5 services: ollama, docling, rag-api, open-webui, caddy
+│   ├── Caddyfile                    # HTTPS, tls internal + on_demand, proxy to open-webui:8080
 │   ├── rag-api/
-│   │   ├── app.py                   # İndeksleme, hibrit arama, doğrulama, hakem, OpenAI API
+│   │   ├── app.py                   # Indexing, hybrid search, verification, judge, OpenAI API
 │   │   └── Dockerfile               # python:3.12-slim + fastapi, uvicorn, httpx, numpy, fastembed
-│   ├── open-webui/Dockerfile        # Stok imaj, yalnız " (Open WebUI)" ad eki kaldırılmış
-│   ├── tools/pdf_to_md.py           # Binlerce sayfalık PDF'i yer imlerinden başlıklı Markdown'a çevirir
-│   ├── aruba-bot*.service / .timer  # systemd: açılış, yeniden indeksleme, boşta önbellek bırakma
+│   ├── open-webui/Dockerfile        # Stock image with only the " (Open WebUI)" name suffix removed
+│   ├── tools/pdf_to_md.py           # Converts thousand-page PDFs to Markdown with headings from bookmarks
+│   ├── aruba-bot*.service / .timer  # systemd: boot, re-indexing, dropping idle cache
 │   └── *.sh                         # ask, status, bench, wake, idle, netdiag, docling-api
 ├── crawler/
-│   ├── tree_to_jsonl.py             # Ağaç .md dosyalarını rag-api'nin okuduğu commands.jsonl'a çevirir
-│   ├── aruba-vmc/                   # AOS 8 Mobility Controller taraması
-│   │   ├── aruba_crawl.py           # SSH + ? ile DFS tarayıcı, kaldığı yerden devam eder
-│   │   ├── run_crawl.ps1            # Şifreyi bir kez sorar, çökerse 30 sn sonra yeniden dener
-│   │   └── commands.sample.jsonl    # 300 satırlık örnek; tam dizin kendi cihazınızdan üretilir
-│   └── aruba-cx-6200m/              # CX 6200M switch, aynı yapı
-├── vm-control/                      # Windows: VMware VM'i başlat/uyut, masaüstü kısayolları
+│   ├── tree_to_jsonl.py             # Converts tree .md files to the commands.jsonl rag-api reads
+│   ├── aruba-vmc/                   # AOS 8 Mobility Controller crawl
+│   │   ├── aruba_crawl.py           # SSH + ? DFS crawler, resumes where it stopped
+│   │   ├── run_crawl.ps1            # Asks for the password once, retries after 30 s if it crashes
+│   │   └── commands.sample.jsonl    # 300-line sample; generate the full index from your own device
+│   └── aruba-cx-6200m/              # CX 6200M switch, same layout
+├── vm-control/                      # Windows: start/suspend the VMware VM, desktop shortcuts
 └── docs/
-    ├── KULLANIM.md                  # Sıfırdan kurulum, tüm ayarlar ve nedenleri, sorun giderme
-    ├── architecture.md              # Bileşenler, veri modeli, dizilim ve durum diyagramları
-    └── assets/                      # Banner ve ekran görüntüleri
+    ├── USAGE.md                     # Install from scratch, all settings and reasons, troubleshooting
+    ├── architecture.md              # Components, data model, sequence and state diagrams
+    ├── troubleshooting.md           # Problems met during setup, root causes, fixes
+    ├── tr/                          # Turkish versions of the documents
+    └── assets/                      # Banners
 ```
 
 ---
 
-## 🧪 Geliştirme ve test
+## 🧪 Development and testing
 
-Repoda otomatik test, lint veya CI **yoktur**. Kalite iki katmanla çalışma anında denetlenir: deterministik komut doğrulaması (`verify()`) ve hakem modeli (`judge()`). Her cevabın altında sonuçları görünür.
+The repo has **no** automated tests, lint or CI. Quality is checked at runtime by two layers: deterministic command verification (`verify()`) and the judge model (`judge()`). Their results are visible under every answer.
 
-Değişiklik sonrası el ile kontrol:
+Manual checks after a change:
 
 ```bash
-python -m py_compile server/rag-api/app.py          # sözdizimi
-cd /opt/aruba-bot && sudo docker compose config -q   # compose dosyası geçerli mi
-sudo docker compose up -d --build rag-api            # rag-api'yi yeniden derle
-sh status.sh && sh bench.sh                          # indeks durumu ve model hızı
-sh ask.sh aruba-vmc "show ap database ne gösterir?"  # uçtan uca duman testi
+python -m py_compile server/rag-api/app.py          # syntax
+cd /opt/aruba-bot && sudo docker compose config -q   # is the compose file valid
+sudo docker compose up -d --build rag-api            # rebuild rag-api
+sh status.sh && sh bench.sh                          # index status and model speed
+sh ask.sh aruba-vmc "show ap database ne gösterir?"  # end-to-end smoke test
 ```
 
-> ⚠️ rag-api yeniden başlarsa **yarım kalan vektör indekslemesi baştan başlar** (tamamlanan cihazlar korunur). Kod değişikliklerini indeksleme bitince uygulayın.
+> ⚠️ If rag-api restarts, **partial vector indexing starts over** (finished devices are kept). Apply code changes after indexing has finished.
 
-**Çalışma kuralı:** Sunucudaki dosyaları elle değiştirmeyin. Değişikliği repoda yapın, sunucuya kopyalayın, sonra commit + push edin. ([Neden?](docs/sorunlar-ve-cozumler.md))
-
----
-
-## 🔒 Güvenlik ve sınırlar
-
-**Güvenlik**
-- Dışarıya yalnız Caddy (80/443) yayınlanır. Ollama 11434, rag-api 8000, Docling 5001 ve Open WebUI 8080 yalnız Docker iç ağındadır.
-- Crawler cihaz şifresini her çalıştırmada bir kez sorar, diske yazmaz. Parola ve anahtar dosyaları `.gitignore`'dadır.
-- Web araması açıldığında sorgular DuckDuckGo'ya gider; hassas bilgiyle web araması açmayın.
-- Open WebUI'da yeni kayıtları "pending" yapın, ham modelleri kullanıcılardan gizleyin. Ayrıntılar: [KULLANIM.md §21](docs/KULLANIM.md#21-güvenlik-sertleştirme).
-
-**Bilinen sınırlar**
-- CPU'da yavaş: `qwen3:8b` ile ~3 token/sn. Bir cevap genelde 1–3 dakika sürer. Model yükleme ve hakem eklenince daha uzun sürebilir (yukarıdaki örnek 9,5 dk).
-- Crawler'ın taramadığı alt modlardaki komutlar dizinde yoktur; doğrulama bunlar için ⚠️ verebilir.
-- Sertifika kendi imzalıdır, tarayıcı uyarı verir.
-- Döküman içindeki diyagramların anlamı yorumlanmaz, yalnız içlerindeki yazı OCR ile okunur.
-- VM uyurken arayüze erişilemez. Uyanma ~30 sn ile 3 dk arası sürer.
-- Open WebUI'ın ad eki kaldırılmış build'i lisans gereği yalnız **30 günde ≤50 kullanıcı** için geçerlidir. Aşılırsa stok imaja dönün.
+**Working rule:** do not edit files on the server by hand. Change them in the repo, copy them to the server, then commit and push. ([Why?](docs/troubleshooting.md))
 
 ---
 
-## 🧭 Yol haritası
+## 🔒 Security and limits
 
-Kaynak: [KULLANIM.md §22](docs/KULLANIM.md#22-sınırlar-ve-sonraki-adımlar)
+**Security**
+- Only Caddy (80/443) is published. Ollama 11434, rag-api 8000, Docling 5001 and Open WebUI 8080 stay on the Docker internal network.
+- The crawler asks for the device password once per run and never writes it to disk. Password and key files are in `.gitignore`.
+- When web search is enabled, queries go to DuckDuckGo; do not enable it for sensitive information.
+- In Open WebUI set new sign-ups to "pending" and hide the raw models from users. Details: [USAGE.md §21](docs/USAGE.md#21-security-hardening).
 
-- [x] Cihaz bazlı PDF/döküman araması
-- [ ] 30–50 soruluk kalite test seti ile düzenli ölçüm
-- [ ] GPU'lu sunucu (16 GB+ VRAM): `qwen3:14b` ile yaklaşık 10× hız, mimari aynen taşınır
-- [ ] Diğer markalar için crawler'lar
-- [ ] 6200M'e özel dökümanlar
-- [ ] Onaylanmış doğru cevapları "onaylı Q&A" olarak dizine eklemek
+**Known limits**
+- Slow on CPU: ~3 tokens/s with `qwen3:8b`. An answer usually takes 1–3 minutes, longer when model loading and the judge are added (the example above took 9.5 min).
+- Commands in submodes the crawler did not visit are not in the index; verification may show ⚠️ for them.
+- The certificate is self-signed, so the browser warns.
+- The meaning of diagrams inside documents is not interpreted; only the text inside them is read with OCR.
+- The UI is unreachable while the VM is suspended. Waking takes ~30 s to 3 min.
+- The Open WebUI build without the name suffix is licensed only for **≤50 users in 30 days**. If you exceed that, go back to the stock image.
 
 ---
 
-## 🤝 Katkı ve lisans
+## 🧭 Roadmap
 
-Değişiklik önerileri için issue açabilir veya PR gönderebilirsiniz. Kod stili: mevcut dosyalardaki düzeni izleyin. Sunucu tarafı Linux dosyaları LF, PowerShell dosyaları CRLF olmalı (`.gitattributes` bunu sağlar).
+Source: [USAGE.md §22](docs/USAGE.md#22-limits-and-next-steps)
 
-**Repoda olmayanlar**
-- Parolalar ve SSH anahtarları (`.gitignore`)
-- Üretici PDF'leri ve onlardan üretilen Markdown (telif hakkı; kaynak listesi [KULLANIM.md §16.1.2](docs/KULLANIM.md#1612-yüklü-dökümanlar-2026-10-31))
-- Docker volume'leri (modeller, indeksler, kullanıcılar): sunucuda yeniden üretilir
+- [x] Per-device PDF/document search
+- [ ] Regular measurement with a 30–50 question quality test set
+- [ ] GPU server (16 GB+ VRAM): about 10× faster with `qwen3:14b`, the architecture carries over unchanged
+- [ ] Crawlers for other brands
+- [ ] Documents specific to the 6200M
+- [ ] Add approved correct answers to the index as "approved Q&A"
 
-**Lisans:** [Apache-2.0](LICENSE), bkz. [NOTICE](NOTICE). Aruba ve HPE ilgili sahiplerinin ticari markalarıdır; proje bağımsızdır. Kullanılan bileşenler kendi lisanslarına tabidir (Open WebUI, Ollama, Docling, Qwen modelleri).
+---
+
+## 🤝 Contributing and license
+
+You can open an issue or send a PR with suggestions. Code style: follow the layout of the existing files. Server-side Linux files must use LF and PowerShell files CRLF (`.gitattributes` enforces this).
+
+**Not in the repo**
+- Passwords and SSH keys (`.gitignore`)
+- Vendor PDFs and the Markdown generated from them (copyright; source list in [USAGE.md §16.1.2](docs/USAGE.md#1612-installed-documents-2026-10-31))
+- Docker volumes (models, indexes, users): they are regenerated on the server
+
+**License:** [Apache-2.0](LICENSE), see [NOTICE](NOTICE). Aruba and HPE are trademarks of their respective owners; this project is independent. The components used keep their own licenses (Open WebUI, Ollama, Docling, Qwen models).

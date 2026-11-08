@@ -1,4 +1,6 @@
 
+
+[English](../troubleshooting.md) · [Türkçe](sorunlar-ve-cozumler.md)
 # Sensei-Aruba - Sorunlar ve Çözümler
 
 | Problem | Neden (kök neden) | Çözüm | Tekrarını önleme |

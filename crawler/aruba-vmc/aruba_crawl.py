@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Emre Yiğit Taşdelen
-"""Aruba VMC CLI crawler: '?' ile komut agacini DFS olarak gezer, her bulguyu aninda dokumana yazar.
-Hicbir komutu calistirmaz (Enter yalnizca: no paging, enable, configure terminal, exit).
-Kesilirse tekrar calistirin; state.json'dan kaldigi yerden devam eder.
-Kullanim: python aruba_crawl.py --host <cihaz-ip> [--depth 8]
-Kimlik: ARUBA_USER / ARUBA_PASS / ARUBA_ENABLE ortam degiskenleri ya da terminalde sorulur.
+"""Aruba VMC CLI crawler: walks the command tree depth-first with '?' and writes every finding to the document immediately.
+It runs no command (Enter is pressed only for: no paging, enable, configure terminal, exit).
+If interrupted, run it again; it resumes from the state file.
+Usage: python aruba_crawl.py --host <cihaz-ip> [--depth 8]
+Credentials: ARUBA_USER / ARUBA_PASS / ARUBA_ENABLE environment variables, or asked in the terminal.
 """
 import argparse, getpass, json, os, re, time
 import paramiko
@@ -102,8 +102,8 @@ def main():
     ap.add_argument("--host", required=True)
     ap.add_argument("--depth", type=int, default=8)
     ap.add_argument("--modes", default="enable,config")
-    ap.add_argument("--root", default="", help="mod:komut, orn. enable:show (bos=tum agac)")
-    ap.add_argument("--skip", default="", help="mod:komut oneki; bu dala inme")
+    ap.add_argument("--root", default="", help="mode:command, e.g. enable:show (empty = whole tree)")
+    ap.add_argument("--skip", default="", help="mode:command prefix; do not descend into this branch")
     ap.add_argument("--wait", type=float, default=0.5)
     a = ap.parse_args()
     global DOC, STATE, WAIT
@@ -111,8 +111,8 @@ def main():
     tag = re.sub(r"\W+", "_", a.root) if a.root else "all"
     DOC = os.path.join(HERE, f"aruba_cli_tree_{tag}.md")
     STATE = os.path.join(HERE, f"state_{tag}.json")
-    user = os.environ.get("ARUBA_USER") or input("Kullanici: ")
-    pw = os.environ.get("ARUBA_PASS") or getpass.getpass("Sifre: ")
+    user = os.environ.get("ARUBA_USER") or input("User: ")
+    pw = os.environ.get("ARUBA_PASS") or getpass.getpass("Password: ")
     en = os.environ.get("ARUBA_ENABLE") or pw
 
     if os.path.exists(STATE):
@@ -123,7 +123,7 @@ def main():
             st = {"stack": [[m, c, len(c.split())]], "done": 0}
         else:
             st = {"stack": [[m, "", 0] for m in reversed(a.modes.split(","))], "done": 0}
-        open(DOC, "w", encoding="utf-8").write(f"# Aruba VMC CLI Agaci ({a.host})\n\n")
+        open(DOC, "w", encoding="utf-8").write(f"# Aruba VMC CLI Tree ({a.host})\n\n")
     cli = Cli(a, user, pw, en)
     doc = open(DOC, "a", encoding="utf-8")
 
@@ -133,19 +133,19 @@ def main():
             cli.set_mode(mode)
             out = cli.ask(cmd)
         except Exception as e:
-            print("Baglanti hatasi, yeniden baglaniliyor:", e)
+            print("Connection error, reconnecting:", e)
             time.sleep(5)
             try:
                 cli.connect()
             except Exception as e2:
-                print("Tekrar deneme basarisiz:", e2)
+                print("Retry failed:", e2)
                 time.sleep(20)
             continue
         st["stack"].pop()
         items = parse(out, cmd)
         desc = st.get("desc", {}).pop(f"{mode}|{cmd}", "")
         if not cmd:
-            doc.write(f"\n## Mod: {mode}\n\n")
+            doc.write(f"\n## Mode: {mode}\n\n")
         else:
             doc.write(f"{'  ' * (depth - 1)}- `{cmd}`" + (f" — {desc}" if desc else "") + "\n")
         children = []
@@ -158,7 +158,7 @@ def main():
             if repeat:
                 doc.write(f"{'  ' * depth}- `{full}`" + (f" — {d}" if d else "") + "\n")
             elif a.skip and f"{mode}:{full}" == a.skip:
-                doc.write(f"{'  ' * depth}- `{full}` — (ayri taranir)\n")
+                doc.write(f"{'  ' * depth}- `{full}` — (crawled separately)\n")
             elif not k.startswith(("<", "|")) and depth + 1 <= a.depth and not re.match(r"^[A-Z]", k):
                 children.append([mode, full, depth + 1])
                 st.setdefault("desc", {})[f"{mode}|{full}"] = d
@@ -168,10 +168,10 @@ def main():
         st["done"] += 1
         doc.flush()
         json.dump(st, open(STATE, "w", encoding="utf-8"))
-        print(f"[{st['done']}] {mode}: {cmd or '(root)'} -> {len(items)} | kuyruk {len(st['stack'])}")
-    doc.write("\n_Tamamlandi._\n")
+        print(f"[{st['done']}] {mode}: {cmd or '(root)'} -> {len(items)} | queue {len(st['stack'])}")
+    doc.write("\n_Completed._\n")
     doc.close()
-    print("Bitti:", DOC)
+    print("Done:", DOC)
 
 
 if __name__ == "__main__":

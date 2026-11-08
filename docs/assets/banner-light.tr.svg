@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="Sensei-Aruba: komutu uydurmayan, tamamen lokal Aruba CLI asistanı">
+  <defs>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#d0d7de"/>
+    </pattern>
+    <linearGradient id="bar" x1="0" x2="1">
+      <stop offset="0" stop-color="#c2410c"/><stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="1279" height="319" rx="22" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect x="0.5" y="0.5" width="1279" height="319" rx="22" fill="url(#dots)" opacity="0.7"/>
+  <rect x="64" y="64" width="72" height="5" rx="2.5" fill="url(#bar)"/>
+
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="64" y="104" font-size="15" font-weight="600" letter-spacing="2.5" fill="#c2410c">LOKAL · TOKEN'SIZ · TÜRKÇE</text>
+    <text x="62" y="170" font-size="68" font-weight="700" fill="#1f2328">Sensei-Aruba</text>
+    <text x="64" y="212" font-size="23" fill="#57606a">Komutu uydurmayan, tamamen lokal Aruba CLI asistanı</text>
+    <rect x="64" y="240" width="43" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="86" y="260" font-size="14" text-anchor="middle" fill="#1f2328">RAG</text>
+    <rect x="117.2" y="240" width="68" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="151" y="260" font-size="14" text-anchor="middle" fill="#1f2328">Ollama</text>
+    <rect x="195.60000000000002" y="240" width="102" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="247" y="260" font-size="14" text-anchor="middle" fill="#1f2328">Open WebUI</text>
+    <rect x="307.6" y="240" width="77" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="346" y="260" font-size="14" text-anchor="middle" fill="#1f2328">FastAPI</text>
+    <rect x="394.40000000000003" y="240" width="110" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="450" y="260" font-size="14" text-anchor="middle" fill="#1f2328">SQLite FTS5</text>
+    <rect x="514.8000000000001" y="240" width="136" height="30" rx="15" fill="#eef2f6" stroke="#d0d7de"/><text x="583" y="260" font-size="14" text-anchor="middle" fill="#1f2328">Docker Compose</text>
+  </g>
+
+  <g transform="translate(756 52)" font-family="ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace" font-size="14">
+    <rect width="468" height="216" rx="12" fill="#ffffff" stroke="#d0d7de"/>
+    <circle cx="20" cy="20" r="5" fill="#d0d7de"/><circle cx="38" cy="20" r="5" fill="#d0d7de"/><circle cx="56" cy="20" r="5" fill="#d0d7de"/>
+    <text x="234" y="25" text-anchor="middle" font-size="12" fill="#57606a">aruba-cx-6200m</text>
+    <line x1="0" y1="40" x2="468" y2="40" stroke="#d0d7de"/>
+    <text x="20" y="70" fill="#c2410c">❯ <tspan fill="#24292f">802.1x config yaz port 1/1/1</tspan></text>
+    <text x="20" y="100" fill="#57606a">  BM25 + vektör → RRF → qwen3:8b</text>
+    <text x="20" y="134" fill="#24292f">  aaa authentication port-access</text>
+    <text x="20" y="154" fill="#24292f">      dot1x authenticator</text>
+    <line x1="20" y1="174" x2="448" y2="174" stroke="#d0d7de" stroke-dasharray="3 4"/>
+    <text x="20" y="199" fill="#0f766e">✓ Doğrulama: dizinde var   ⚖ Hakem: ONAY</text>
+  </g>
+</svg>

@@ -1,24 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Emre Yiğit Taşdelen
-"""aruba_cli_tree_*.md dosyalarını rag-api'nin okuduğu commands.jsonl'a çevirir.
+"""Converts aruba_cli_tree_*.md files into the commands.jsonl that rag-api reads.
 
-Kullanim: python tree_to_jsonl.py --device aruba-vmc aruba_cli_tree_*.md -o commands.jsonl
-Her satir: {"device","mode","command","description","text"}. Ayni (mod, komut) bir kez yazilir.
+Usage: python tree_to_jsonl.py --device aruba-vmc aruba_cli_tree_*.md -o commands.jsonl
+One line per record: {"device","mode","command","description","text"}. Each (mode, command) pair is written once.
 """
 import argparse
 import json
 import re
 
-MODE = re.compile(r"^## Mod: (\S+)")
+MODE = re.compile(r"^## Mod(?:e)?: (\S+)")  # "## Mod:" in trees written by older crawls
 CMD = re.compile(r"^\s*- `(.*?)`(?: — (.*))?$")
 FILE = re.compile(r"aruba_cli_tree_([A-Za-z0-9]+)_")
-PLACEHOLDER = "(ayri taranir)"  # crawler bu dali ayri oturumda tarar
+PLACEHOLDERS = ("(crawled separately)", "(ayri taranir)")  # the crawler visits this branch in another session (second form: older crawls)
 
 
 def convert(paths, device):
     seen = set()
     for path in paths:
-        # --root ile taranan dosyalarda "## Mod:" basligi olmayabilir: mod dosya adindan (aruba_cli_tree_<mod>_<kok>.md)
+        # Files crawled with --root may have no "## Mode:" heading: take the mode from the file name (aruba_cli_tree_<mode>_<root>.md)
         m0 = FILE.search(path.replace("\\", "/"))
         mode = m0.group(1) if m0 else ""
         with open(path, encoding="utf-8") as f:
@@ -32,7 +32,7 @@ def convert(paths, device):
                 if not m or not mode:
                     continue
                 cmd, desc = m.group(1), (m.group(2) or "")
-                if desc == PLACEHOLDER:
+                if desc in PLACEHOLDERS:
                     desc = ""
                 if (mode, cmd) in seen:
                     continue
@@ -43,8 +43,8 @@ def convert(paths, device):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("trees", nargs="+", help="aruba_cli_tree_*.md dosyalari")
-    ap.add_argument("--device", required=True, help="cihaz adi (klasor/model adi ile ayni)")
+    ap.add_argument("trees", nargs="+", help="aruba_cli_tree_*.md files")
+    ap.add_argument("--device", required=True, help="device name (same as the folder / model name)")
     ap.add_argument("-o", "--out", default="commands.jsonl")
     a = ap.parse_args()
     n = 0
@@ -52,7 +52,7 @@ def main():
         for rec in convert(a.trees, a.device):
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             n += 1
-    print(f"{n} komut yazildi: {a.out}")
+    print(f"{n} commands written: {a.out}")
 
 
 if __name__ == "__main__":
