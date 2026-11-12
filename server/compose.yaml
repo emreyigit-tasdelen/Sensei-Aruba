@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # Sensei-Aruba stack: Ollama (models) + Open WebUI (chat, RAG, vision, web search) + Docling (document parsing)
 x-logging: &logging

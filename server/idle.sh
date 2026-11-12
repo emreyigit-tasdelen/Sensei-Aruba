@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # Idle check. "idle" = no model loaded in Ollama (unloaded after 5 idle minutes) and rag-api not indexing.
 #   idle.sh          (systemd timer, every 5 min) drops the page cache when idle

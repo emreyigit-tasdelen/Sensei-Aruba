@@ -489,7 +489,7 @@ Değişiklik önerileri için issue açabilir veya PR gönderebilirsiniz. Kod st
 - Üretici PDF'leri ve onlardan üretilen Markdown (telif hakkı; kaynak listesi [KULLANIM.md §16.1.2](docs/tr/KULLANIM.md#1612-yüklü-dökümanlar-2026-10-31))
 - Docker volume'leri (modeller, indeksler, kullanıcılar): sunucuda yeniden üretilir
 
-**Lisans:** [Apache-2.0](LICENSE), bkz. [NOTICE](NOTICE). Aruba ve HPE ilgili sahiplerinin ticari markalarıdır; proje bağımsızdır. Kullanılan bileşenler kendi lisanslarına tabidir (Open WebUI, Ollama, Docling, Qwen modelleri).
+**Lisans:** [AGPL-3.0](LICENSE), bkz. [NOTICE](NOTICE). Aruba ve HPE ilgili sahiplerinin ticari markalarıdır; proje bağımsızdır. Kullanılan bileşenler kendi lisanslarına tabidir (Open WebUI, Ollama, Docling, Qwen modelleri).
 
 ## Destek
 

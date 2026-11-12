@@ -488,7 +488,7 @@ You can open an issue or send a PR with suggestions. Code style: follow the layo
 - Vendor PDFs and the Markdown generated from them (copyright; source list in [USAGE.md §16.1.2](docs/USAGE.md#1612-installed-documents-2026-10-31))
 - Docker volumes (models, indexes, users): they are regenerated on the server
 
-**License:** [Apache-2.0](LICENSE), see [NOTICE](NOTICE). Aruba and HPE are trademarks of their respective owners; this project is independent. The components used keep their own licenses (Open WebUI, Ollama, Docling, Qwen models).
+**License:** [AGPL-3.0](LICENSE), see [NOTICE](NOTICE). Aruba and HPE are trademarks of their respective owners; this project is independent. The components used keep their own licenses (Open WebUI, Ollama, Docling, Qwen models).
 
 ## Support
 

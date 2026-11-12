@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # Open WebUI with the " (Open WebUI)" name suffix removed, so the UI shows only WEBUI_NAME ("Sensei-Aruba").
 # Allowed by the Open WebUI license only while this deployment has 50 or fewer users in any 30-day period

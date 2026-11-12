@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # Usage: pwsh run_crawl.ps1 "<root>" "<skip>"   (the password is asked once and never written to disk)
 # If the crawler crashes it resumes from the state file after 30 s.

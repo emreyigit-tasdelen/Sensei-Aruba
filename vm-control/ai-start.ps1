@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # "AI Başlat": starts or resumes the AI VM, waits for the web UI, opens the browser.
 . "$PSScriptRoot\ai-common.ps1"

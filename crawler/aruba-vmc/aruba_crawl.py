@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 """Aruba VMC CLI crawler: walks the command tree depth-first with '?' and writes every finding to the document immediately.
 It runs no command (Enter is pressed only for: no paging, enable, configure terminal, exit).

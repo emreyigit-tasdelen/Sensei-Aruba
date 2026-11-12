@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # One-time setup: desktop shortcuts "AI Başlat" / "AI Uyut". No scheduled task: the model unloads itself
 # inside the server (Ollama keep-alive), so nothing runs in the background on this PC.

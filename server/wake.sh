@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright 2026 Emre Yiğit Taşdelen
 # Run after the VM boots or resumes ("AI Başlat" calls it). Waits until HTTPS answers.
 # Recovery ladder: restart open-webui + caddy (stale connections after resume),
